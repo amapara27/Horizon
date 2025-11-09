@@ -36,3 +36,14 @@ def get_trending_events():
 @app.get("/api/sports-events")
 def get_sports_events():
     return get_sports_events_service(limit=20)
+
+@app.get("/api/event/{event_id}")
+def get_event_details(event_id: str):
+    import requests
+    try:
+        response = requests.get(f"https://gamma-api.polymarket.com/events/{event_id}")
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail=f"Error fetching event: {str(e)}")

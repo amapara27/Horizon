@@ -12,11 +12,11 @@ const EventItem = ({ event, onClick }) => {
     try {
         const market = event.markets[0];
         const title = event.title || 'N/A';
-        const outcomes = JSON.parse(market.outcomes || '[]');
         
-        // Get Yes and No prices
-        const yesPrice = market.bestBid || 'N/A';
-        const noPrice = market.bestAsk || 'N/A';
+        // Get actual market prices from outcomePrices
+        const outcomePrices = JSON.parse(market.outcomePrices || '[0, 0]');
+        const yesPrice = parseFloat(outcomePrices[0]).toFixed(3);
+        const noPrice = parseFloat(outcomePrices[1]).toFixed(3);
 
         return (
             <div className="event-item" onClick={() => onClick(event.id)}>
