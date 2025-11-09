@@ -130,6 +130,7 @@ def get_event_analysis(event_id: str):
         return {
             "event_data": {
                 "id": event_data.get('id'),
+                "slug": event_data.get('slug', ''),
                 "title": event_data.get('title'),
                 "description": event_data.get('description'),
                 "volume": event_data.get('volumeNum', 0),

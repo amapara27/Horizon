@@ -415,7 +415,7 @@ function AnalysisPage() {
                                 Trade this market, view full order book, and see detailed charts on Polymarket
                             </p>
                             <a
-                                href={`https://polymarket.com/event/${eventId}`}
+                                href={eventData.slug ? `https://polymarket.com/event/${eventData.slug}` : `https://polymarket.com`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 style={{
