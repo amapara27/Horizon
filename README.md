@@ -45,7 +45,7 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 3. Install dependencies:
 ```bash
-pip install fastapi uvicorn requests python-dotenv
+pip install -r requirements.txt
 ```
 
 4. Create a `.env` file (optional - currently no API keys required for Polymarket):
