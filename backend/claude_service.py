@@ -158,7 +158,7 @@ Respond in JSON format with:
         return {"sentiment_score": 0, "reasoning": f"Error analyzing news sentiment: {str(e)}"}
 
 
-def analyze_smart_wallets(market_depth_data, event_data):
+def analyze_market_depth(market_depth_data, event_data):
     """
     Analyzes market depth and liquidity distribution for a specific event.
     Evaluates market health and trader participation.

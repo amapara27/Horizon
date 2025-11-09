@@ -9,11 +9,11 @@ from polymarket_fetcher import (
 )
 from claude_service import (
     analyze_event_sentiment,
-    analyze_smart_wallets,
+    analyze_market_depth,
     generate_combined_sentiment,
     analyze_news_sentiment
 )
-from wallet_service import get_event_smart_wallets
+from market_depth_service import get_event_market_depth
 from news_service import get_event_news
 
 # --- App Setup ---
@@ -50,11 +50,11 @@ def get_event_details(event_id: str):
     except requests.exceptions.RequestException as e:
         raise HTTPException(status_code=500, detail=f"Error fetching event: {str(e)}")
 
-@app.get("/api/event/{event_id}/smart-wallets")
-def get_event_wallets(event_id: str):
-    """Get smart wallet positions for a specific event"""
-    wallets = get_event_smart_wallets(event_id)
-    return wallets
+@app.get("/api/event/{event_id}/market-depth")
+def get_event_market_depth_endpoint(event_id: str):
+    """Get aggregated market depth data for a specific event"""
+    depth_data = get_event_market_depth(event_id)
+    return depth_data
 
 @app.get("/api/event/{event_id}/news")
 def get_event_news_endpoint(event_id: str):
@@ -89,22 +89,22 @@ def get_news_sentiment_endpoint(event_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error analyzing news sentiment: {str(e)}")
 
-@app.get("/api/event/{event_id}/wallet-sentiment")
-def get_wallet_sentiment(event_id: str):
-    """Get AI analysis of smart wallet activity"""
+@app.get("/api/event/{event_id}/market-depth-sentiment")
+def get_market_depth_sentiment(event_id: str):
+    """Get AI analysis of market depth and liquidity"""
     try:
-        # Fetch event and wallet data
+        # Fetch event and market depth data
         response = requests.get(f"https://gamma-api.polymarket.com/events/{event_id}")
         response.raise_for_status()
         event_data = response.json()
         
-        wallets = get_event_smart_wallets(event_id)
+        depth_data = get_event_market_depth(event_id)
         
-        # Analyze wallet sentiment
-        sentiment = analyze_smart_wallets(wallets, event_data)
+        # Analyze market depth sentiment
+        sentiment = analyze_market_depth(depth_data, event_data)
         return sentiment
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error analyzing wallets: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error analyzing market depth: {str(e)}")
 
 @app.get("/api/event/{event_id}/combined-sentiment")
 def get_combined_sentiment(event_id: str):
@@ -119,12 +119,12 @@ def get_combined_sentiment(event_id: str):
         news = get_event_news(event_data.get('title', ''), max_results=10)
         news_sentiment = analyze_news_sentiment(news.get('articles', []), event_data)
         
-        # Get wallet analysis
-        wallets = get_event_smart_wallets(event_id)
-        wallet_sentiment = analyze_smart_wallets(wallets, event_data)
+        # Get market depth analysis
+        depth_data = get_event_market_depth(event_id)
+        depth_sentiment = analyze_market_depth(depth_data, event_data)
         
         # Generate combined sentiment
-        combined = generate_combined_sentiment(news_sentiment, wallet_sentiment, event_data)
+        combined = generate_combined_sentiment(news_sentiment, depth_sentiment, event_data)
         return combined
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating combined sentiment: {str(e)}")
