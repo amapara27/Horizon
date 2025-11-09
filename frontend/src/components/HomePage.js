@@ -11,15 +11,23 @@ const EventItem = ({ event }) => {
     try {
         const market = event.markets[0];
         const title = event.title || 'N/A';
-        const bid = market.bestBid || 'N/A';
-        const ask = market.bestAsk || 'N/A';
         const outcomes = JSON.parse(market.outcomes || '[]');
-        const outcomeName = outcomes[0] || "Outcome 1";
+        
+        // Get Yes and No prices
+        const yesPrice = market.bestBid || 'N/A';
+        const noPrice = market.bestAsk || 'N/A';
 
         return (
             <div className="event-item">
                 <div className="event-title">{title}</div>
-                <div className="event-price">({outcomeName} Price: ${bid} / ${ask})</div>
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                    <div className="event-price" style={{ background: 'rgba(34, 197, 94, 0.1)', color: '#16a34a' }}>
+                        Yes: ${yesPrice}
+                    </div>
+                    <div className="event-price" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#dc2626' }}>
+                        No: ${noPrice}
+                    </div>
+                </div>
             </div>
         );
     } catch (e) {
@@ -58,24 +66,34 @@ const ColumnContent = ({ error, data }) => {
  */
 function HomePage() {
     // State is now simpler, just data and error
-    const [newEvents, setNewEvents] = useState({ data: null, error: null });
+    const [techEvents, setTechEvents] = useState({ data: null, error: null });
     const [trendingEvents, setTrendingEvents] = useState({ data: null, error: null });
-    const [cryptoEvents, setCryptoEvents] = useState({ data: null, error: null });
+    const [sportsEvents, setSportsEvents] = useState({ data: null, error: null });
 
     useEffect(() => {
-        // Fetch data with proper error handling
-        api.fetchNewEvents()
-            .then(result => setNewEvents(result))
-            .catch(err => setNewEvents({ data: null, error: String(err) }));
-        
-        api.fetchTrendingEvents()
-            .then(result => setTrendingEvents(result))
-            .catch(err => setTrendingEvents({ data: null, error: String(err) }));
-        
-        api.fetchCryptoEvents()
-            .then(result => setCryptoEvents(result))
-            .catch(err => setCryptoEvents({ data: null, error: String(err) }));
+        // Function to fetch all data
+        const fetchAllData = () => {
+            api.fetchTechEvents()
+                .then(result => setTechEvents(result))
+                .catch(err => setTechEvents({ data: null, error: String(err) }));
             
+            api.fetchTrendingEvents()
+                .then(result => setTrendingEvents(result))
+                .catch(err => setTrendingEvents({ data: null, error: String(err) }));
+            
+            api.fetchSportsEvents()
+                .then(result => setSportsEvents(result))
+                .catch(err => setSportsEvents({ data: null, error: String(err) }));
+        };
+
+        // Fetch immediately on mount
+        fetchAllData();
+
+        // Set up auto-refresh every 30 seconds
+        const interval = setInterval(fetchAllData, 30000);
+
+        // Cleanup interval on unmount
+        return () => clearInterval(interval);
     }, []); // Runs once on mount
 
     return (
@@ -104,9 +122,9 @@ function HomePage() {
             
             <div className="dashboard-container">
                 <div className="dashboard-column">
-                    <h2>🚀 Newest Events</h2>
+                    <h2>💻 Tech Events</h2>
                     <div className="event-list">
-                        <ColumnContent data={newEvents.data} error={newEvents.error} />
+                        <ColumnContent data={techEvents.data} error={techEvents.error} />
                     </div>
                 </div>
                 
@@ -118,9 +136,9 @@ function HomePage() {
                 </div>
 
                 <div className="dashboard-column">
-                    <h2>🪙 Crypto Events</h2>
+                    <h2>⚽ Sports Events</h2>
                     <div className="event-list">
-                        <ColumnContent data={cryptoEvents.data} error={cryptoEvents.error} />
+                        <ColumnContent data={sportsEvents.data} error={sportsEvents.error} />
                     </div>
                 </div>
             </div>

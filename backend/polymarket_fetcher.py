@@ -2,7 +2,7 @@ import requests
 import json
 
 GAMMA_API = "https://gamma-api.polymarket.com"
-CRYPTO_TAG_ID = '21'
+SPORTS_TAG_ID = '10'  # Sports category
 
 ## Formats event data for display
 def format_event_data(event):
@@ -28,33 +28,45 @@ def format_event_data(event):
 
 # Fetches newest events
 
-def get_new_events_service(limit=5):
+def get_tech_events_service(limit=20):
     """
-    Fetches the most recently created active events.
+    Fetches tech-related events using Tech, AI, and Big Tech tags.
     """
-    print("--- 🚀 Newest Events ---")
+    print("--- 💻 Tech Events ---")
     params = {
         'closed': 'false',
-        'order': 'id',          # 'id' (or 'creation_date') is best for "new"
-        'ascending': 'false',   # Newest first
-        'limit': limit
+        'order': 'volume24hr',
+        'ascending': 'false',
+        'limit': 100
     }
+    
+    # Tech tag IDs: Tech (1401), AI (439), Big Tech (101999)
+    tech_tag_ids = ['1401', '439', '101999']
     
     try:
         response = requests.get(f"{GAMMA_API}/events", params=params)
         response.raise_for_status()
-        events = response.json()
+        all_events = response.json()
         
-        for event in events:
-            formatted = format_event_data(event)
-            if formatted:
-                print(formatted)
+        # Filter for events with tech tags
+        tech_events = []
+        for event in all_events:
+            event_tags = event.get('tags', [])
+            # Check if event has any of the tech tag IDs
+            if any(tag.get('id') in tech_tag_ids for tag in event_tags):
+                tech_events.append(event)
+                formatted = format_event_data(event)
+                if formatted:
+                    print(formatted)
+                
+                if len(tech_events) >= limit:
+                    break
         
-        return events  # Return the data
+        return tech_events[:limit]
                 
     except requests.exceptions.RequestException as e:
-        print(f"Error fetching new events: {e}\n")
-        return []  # Return empty list on error
+        print(f"Error fetching tech events: {e}\n")
+        return []
 
 ## Fetches trending events by volume
 def get_trending_events_service(limit=20):
@@ -86,18 +98,17 @@ def get_trending_events_service(limit=20):
         return []  # Return empty list on error
 
 
-## Fetches crypto events
-def get_crypto_events_service(limit=5):
+## Fetches sports events
+def get_sports_events_service(limit=5):
     """
-    Fetches the newest events in a specific category (e.g., "Politics").
+    Fetches the newest events in the Sports category.
     """
-    print("--- 'Crypto' Events ---")
+    print("--- '⚽ Sports' Events ---")
     
-    # I've updated this to use '4' (Politics) which is a valid ID
     params = {
-        'closed': 'false',
-        'tag_id': CRYPTO_TAG_ID, # Filter by category
-        'order': 'id',                  # Get newest in this category
+       'closed': 'false',
+        'tag_id': SPORTS_TAG_ID,
+        'order': 'id',
         'ascending': 'false',
         'limit': limit
     }
@@ -109,27 +120,26 @@ def get_crypto_events_service(limit=5):
         
         if not events:
             print("  No events found for this tag ID.\n")
-            return []  # Return empty list
+            return []
 
         for event in events:
             formatted = format_event_data(event)
             if formatted:
                 print(formatted)
         
-        return events  # Return the data
+        return events
 
     except requests.exceptions.RequestException as e:
-        print(f"Error fetching breaking events: {e}\n")
-        return []  # Return empty list on error
-
+        print(f"Error fetching sports events: {e}\n")
+        return []
 # --- Main Function to Run Dashboard ---
 
 def get_dashboard_data():
-    get_new_events_service()
-    print("---" * 15) # Add a separator
+    get_tech_events_service()
+    print("---" * 15)
     get_trending_events_service()
-    print("---" * 15) # Add a separator
-    get_crypto_events_service()
+    print("---" * 15)
+    get_sports_events_service()
 
 if __name__ == "__main__":
     get_dashboard_data()

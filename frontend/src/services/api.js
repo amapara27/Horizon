@@ -39,14 +39,14 @@ async function fetchFromBackend(endpoint) {
 // --- Exported API Functions ---
 // These now pass the { data, error } object back to the component
 
-export const fetchNewEvents = () => {
-    return fetchFromBackend("/api/new-events");
+export const fetchTechEvents = () => {
+    return fetchFromBackend("/api/tech-events");
 };
 
 export const fetchTrendingEvents = () => {
     return fetchFromBackend("/api/trending-events");
 };
 
-export const fetchCryptoEvents = () => {
-    return fetchFromBackend("/api/crypto-events");
+export const fetchSportsEvents = () => {
+    return fetchFromBackend("/api/sports-events");
 };
