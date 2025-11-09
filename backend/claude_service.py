@@ -23,72 +23,98 @@ except Exception as e:
 
 def analyze_news_sentiment(news_articles, outcome_name, market_question):
     """
-    Analyzes news articles for a specific outcome and returns a sentiment score.
-    
-    CRITICAL RULE: If no relevant news is found, return score of 0 with reasoning
-    "No relevant news found." Do NOT invent negative sentiment from lack of news.
+    Analyzes news articles using Claude Sonnet 4 with probability assessment.
+    Returns sentiment score, probability, and concise bullet-point reasoning.
     """
     if not CLAUDE_AVAILABLE or not client:
         return {
             "score": 0,
-            "reasoning": "AI analysis unavailable. Please add a valid CLAUDE_API_KEY to backend/.env file."
+            "probability_assessment": "Unknown",
+            "reasoning": "AI analysis unavailable"
         }
     
-    # Check if we have articles
     if not news_articles or len(news_articles) == 0:
+        print(f"No articles for '{outcome_name}'")
         return {
             "score": 0,
-            "reasoning": "No relevant news found in the last 30 days for this outcome."
+            "probability_assessment": "Insufficient data",
+            "reasoning": "No relevant news found"
         }
     
-    # Format news articles for Claude
+    print(f"Analyzing {len(news_articles)} articles for '{outcome_name}'")
+    
     news_text = "\n\n".join([
         f"Title: {article.get('title', 'N/A')}\nDescription: {article.get('description', 'N/A')}\nSource: {article.get('source', 'N/A')}"
-        for article in news_articles[:10]  # Limit to 10 articles
+        for article in news_articles[:10]
     ])
     
-    prompt = f"""Analyze these news articles for the specific outcome: "{outcome_name}" in the market: "{market_question}"
+    prompt = f"""Analyze news for prediction market outcome.
 
-News Articles (last 30 days):
+MARKET: "{market_question}"
+OUTCOME: "{outcome_name}"
+
+NEWS:
 {news_text}
 
-CRITICAL RULES:
-1. If the news articles are NOT specifically about "{outcome_name}", return a score of 0 and reasoning "No relevant news found."
-2. Do NOT invent negative sentiment from a lack of news. Absence of news = score of 0, not negative.
-3. Only return a non-zero score if the news is clearly relevant to this specific outcome.
+TASK:
+1. Check if news is relevant to "{outcome_name}"
+2. If NO → score: 0, probability: "Insufficient data"
+3. If YES → Assess probability and score
 
-Analyze the news:
-1. Are these articles specifically about "{outcome_name}"? If not, score = 0.
-2. If yes, what is the sentiment? Positive news = positive score, negative news = negative score.
-3. How strong is the signal? Strong = higher magnitude, weak = lower magnitude.
+PROBABILITY LEVELS:
+- "Very High" (70-100%): Strong evidence outcome will happen
+- "High" (55-70%): Good evidence favoring outcome
+- "Moderate" (45-55%): Mixed/unclear
+- "Low" (30-45%): Evidence suggests unlikely
+- "Very Low" (0-30%): Strong evidence against
+- "Insufficient data": No relevant news
 
-Sentiment Score Guidelines:
-- 0: No relevant news found
-- +70 to +100: Very positive news strongly supporting this outcome
-- +30 to +69: Moderately positive news
-- +1 to +29: Slightly positive news
-- -1 to -29: Slightly negative news
-- -30 to -69: Moderately negative news
-- -70 to -100: Very negative news contradicting this outcome
+SCORE (-100 to +100):
+- Positive: News makes outcome MORE likely
+- Negative: News makes outcome LESS likely
+- Zero: No relevant news
 
-Respond with ONLY valid JSON (no markdown):
+REASONING FORMAT (3 bullets, max 10 words each):
+• Relevancy: [Yes/No + why in 5 words]
+• Evidence: [Top 1-2 facts only]
+• Impact: [Effect on probability in 5 words]
+
+BE EXTREMELY CONCISE. Cut all unnecessary words.
+
+Return ONLY valid JSON:
 {{
-  "score": <integer from -100 to +100>,
-  "reasoning": "<2-3 sentences explaining the news sentiment or stating 'No relevant news found.'>"
+  "score": <-100 to +100>,
+  "probability_assessment": "<Very High|High|Moderate|Low|Very Low|Insufficient data>",
+  "reasoning": "• Relevancy: [text]
+• Evidence: [text]
+• Impact: [text]"
 }}"""
 
     try:
         message = client.messages.create(
-            model="claude-3-haiku-20240307",
-            max_tokens=512,
+            model="claude-sonnet-4-20250514",
+            max_tokens=250,
             messages=[{"role": "user", "content": prompt}]
         )
         
-        response_text = message.content[0].text
-        result = json.loads(response_text)
+        response_text = message.content[0].text.strip()
+        print(f"Response: {response_text[:150]}...")
+        
+        if response_text.startswith('```'):
+            response_text = response_text.split('```')[1]
+            if response_text.startswith('json'):
+                response_text = response_text[4:]
+            response_text = response_text.strip()
+        
+        result = json.loads(response_text, strict=False)
+        print(f"'{outcome_name}': score={result.get('score', 0)}, prob={result.get('probability_assessment', 'Unknown')}")
         return result
+    except json.JSONDecodeError as e:
+        print(f"JSON error: {str(e)}")
+        return {"score": 0, "probability_assessment": "Error", "reasoning": "Error parsing response"}
     except Exception as e:
-        return {"score": 0, "reasoning": f"Error analyzing news: {str(e)}"}
+        print(f"Error: {str(e)}")
+        return {"score": 0, "probability_assessment": "Error", "reasoning": "Error analyzing news"}
 
 
 def generate_final_summary(outcome_name, news_analysis, depth_analysis):
@@ -109,47 +135,59 @@ def generate_final_summary(outcome_name, news_analysis, depth_analysis):
             "summary": "• AI analysis unavailable. Please configure CLAUDE_API_KEY."
         }
     
-    prompt = f"""Synthesize a concise bullet-point summary for this prediction market outcome.
+    prompt = f"""Create concise summary for prediction market outcome.
 
-Outcome: "{outcome_name}"
+OUTCOME: "{outcome_name}"
 
-News Sentiment Analysis:
-- Score: {news_analysis.get('score', 0)} (range: -100 to +100, where 0 = no news)
-- Reasoning: {news_analysis.get('reasoning', 'No analysis available')}
+NEWS ANALYSIS:
+- Score: {news_analysis.get('score', 0)} (-100 to +100)
+- Probability: {news_analysis.get('probability_assessment', 'Unknown')}
+- Reasoning: {news_analysis.get('reasoning', 'N/A')}
 
-Market Liquidity Analysis:
-- Score: {depth_analysis.get('liquidity_score', 0)} (range: 0-100, factual metric)
+LIQUIDITY:
+- Score: {depth_analysis.get('liquidity_score', 0)} (0-100)
 - Level: {depth_analysis.get('liquidity_level', 'Unknown')}
-- Reasoning: {depth_analysis.get('reasoning', 'No analysis available')}
+- Reasoning: {depth_analysis.get('reasoning', 'N/A')}
 
-Write a concise summary with 3-4 bullet points, each on a new line:
-• Signal: State if positive, negative, or neutral
-• News: Summarize news sentiment in one short phrase
-• Liquidity: State liquidity level and trading risk
-• Recommendation: One sentence on market attractiveness
+Create 4-5 bullets (max 8 words each):
+• Probability: [assessment]
+• Signal: [positive/negative/neutral + why]
+• News: [key finding]
+• Liquidity: [level + risk]
+• Recommendation: [actionable - use "bet for/against" or "consider/avoid" language]
 
-Example format:
-• Signal: Neutral - no clear direction
-• News: No relevant coverage found in last 30 days
-• Liquidity: Zero liquidity - extremely high risk
-• Recommendation: Avoid trading; price is meaningless
+BE CONCISE. Use active language like "Bet against", "Consider betting for", "Avoid due to low liquidity", etc.
 
-IMPORTANT: Put each bullet on its own line (use \\n between bullets, not blank lines).
-
-Respond with ONLY valid JSON (no markdown):
+Return ONLY valid JSON:
 {{
-  "summary": "<your bullet points here, each starting with • on a new line>"
+  "summary": "• Probability: [text]
+• Signal: [text]
+• News: [text]
+• Liquidity: [text]
+• Recommendation: [text]"
 }}"""
 
     try:
         message = client.messages.create(
-            model="claude-3-haiku-20240307",
-            max_tokens=512,
+            model="claude-sonnet-4-20250514",
+            max_tokens=300,
             messages=[{"role": "user", "content": prompt}]
         )
         
-        response_text = message.content[0].text
-        result = json.loads(response_text)
+        response_text = message.content[0].text.strip()
+        print(f"Summary response: {response_text[:150]}...")
+        
+        if response_text.startswith('```'):
+            response_text = response_text.split('```')[1]
+            if response_text.startswith('json'):
+                response_text = response_text[4:]
+            response_text = response_text.strip()
+        
+        result = json.loads(response_text, strict=False)
         return result
+    except json.JSONDecodeError as e:
+        print(f"JSON error: {str(e)}")
+        return {"summary": "• Error: Unable to generate summary"}
     except Exception as e:
-        return {"summary": f"• Error generating summary: {str(e)}"}
+        print(f"Error: {str(e)}")
+        return {"summary": "• Error: Unable to generate summary"}
