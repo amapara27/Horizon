@@ -171,3 +171,20 @@ nav a:hover {
     max-height: 400px;
   }
 }
+
+/* Analysis Page Responsive Design */
+@media (max-width: 1200px) {
+  .analysis-three-column {
+    grid-template-columns: 1fr !important;
+  }
+  
+  .analysis-subsections {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .analysis-three-column {
+    gap: 1rem !important;
+  }
+}
