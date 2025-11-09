@@ -40,11 +40,11 @@ function AnalysisPage() {
             })
             .catch(err => console.error('Error fetching news:', err));
 
-        // Fetch smart wallets
-        fetch(`${API_BASE}/api/event/${eventId}/smart-wallets`)
+        // Fetch market depth data
+        fetch(`${API_BASE}/api/event/${eventId}/market-depth`)
             .then(res => res.json())
             .then(data => setSmartWallets(data))
-            .catch(err => console.error('Error fetching wallets:', err));
+            .catch(err => console.error('Error fetching market depth:', err));
     }, [eventId]);
 
     const runAnalysis = async () => {
