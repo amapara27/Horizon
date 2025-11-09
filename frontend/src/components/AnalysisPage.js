@@ -354,7 +354,7 @@ function AnalysisPage() {
                     </a>
                 </div>
 
-                {/* Right Section - Smart Wallets */}
+                {/* Right Section - Market Depth */}
                 <div style={{
                     background: 'rgba(255, 255, 255, 0.95)',
                     borderRadius: '16px',
@@ -363,171 +363,164 @@ function AnalysisPage() {
                     maxHeight: '600px',
                     overflowY: 'auto'
                 }}>
-                    <h3 style={{ color: '#2d3748', marginBottom: '1rem', fontSize: '1.2rem' }}>
-                        💼 Top Traders
+                    <h3 style={{ color: '#2d3748', marginBottom: '0.5rem', fontSize: '1.2rem' }}>
+                        📊 Market Depth
                     </h3>
+                    <p style={{ color: '#718096', fontSize: '0.75rem', marginBottom: '1rem' }}>
+                        Aggregated order book liquidity
+                    </p>
                     {smartWallets.length > 0 ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                            {smartWallets.map((wallet, idx) => (
-                                <a
+                            {smartWallets.map((depth, idx) => (
+                                <div
                                     key={idx}
-                                    href={`https://polymarket.com/profile/${wallet.address}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
                                     style={{
                                         background: 'linear-gradient(135deg, #f6f8fb 0%, #ffffff 100%)',
                                         border: '1px solid #e2e8f0',
                                         borderRadius: '8px',
                                         padding: '0.75rem',
-                                        fontSize: '0.85rem',
-                                        textDecoration: 'none',
-                                        color: 'inherit',
-                                        transition: 'all 0.2s ease',
-                                        display: 'block'
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.borderColor = '#667eea';
-                                        e.currentTarget.style.transform = 'translateX(5px)';
-                                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.2)';
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.borderColor = '#e2e8f0';
-                                        e.currentTarget.style.transform = 'translateX(0)';
-                                        e.currentTarget.style.boxShadow = 'none';
+                                        fontSize: '0.85rem'
                                     }}
                                 >
+                                    {/* Market Question (if multi-outcome) */}
+                                    {depth.market && smartWallets.length > 2 && (
+                                        <div style={{ 
+                                            fontSize: '0.7rem',
+                                            color: '#718096',
+                                            marginBottom: '0.4rem',
+                                            fontStyle: 'italic',
+                                            borderBottom: '1px solid #e2e8f0',
+                                            paddingBottom: '0.3rem'
+                                        }}>
+                                            {depth.market}
+                                        </div>
+                                    )}
+                                    
                                     <div style={{ 
                                         display: 'flex',
                                         justifyContent: 'space-between',
                                         alignItems: 'center',
-                                        marginBottom: '0.5rem'
+                                        marginBottom: '0.75rem'
                                     }}>
                                         <div style={{ 
-                                            fontFamily: 'monospace', 
-                                            fontSize: '0.75rem',
-                                            color: '#4a5568',
-                                            fontWeight: '600'
+                                            fontSize: '1.1rem',
+                                            color: '#1a202c',
+                                            fontWeight: '800',
+                                            letterSpacing: '-0.02em'
                                         }}>
-                                            {wallet.address.substring(0, 6)}...{wallet.address.substring(38)}
+                                            {depth.outcome}
                                         </div>
                                         <div style={{
                                             fontSize: '0.7rem',
                                             color: '#667eea',
-                                            fontWeight: '600'
+                                            fontWeight: '700',
+                                            background: 'rgba(102, 126, 234, 0.15)',
+                                            padding: '0.3rem 0.6rem',
+                                            borderRadius: '6px'
                                         }}>
-                                            #{idx + 1}
+                                            {depth.unique_makers} makers
                                         </div>
                                     </div>
+                                    
+                                    {/* Liquidity Bar */}
                                     <div style={{ 
-                                        display: 'flex', 
-                                        justifyContent: 'space-between',
-                                        marginBottom: '0.5rem',
-                                        alignItems: 'center'
+                                        marginBottom: '0.75rem',
+                                        padding: '0.5rem',
+                                        background: 'rgba(102, 126, 234, 0.05)',
+                                        borderRadius: '6px'
                                     }}>
-                                        <span style={{
-                                            padding: '0.25rem 0.5rem',
-                                            borderRadius: '4px',
-                                            background: wallet.position === 'YES' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                                            color: wallet.position === 'YES' ? '#16a34a' : '#dc2626',
-                                            fontWeight: '700',
-                                            fontSize: '0.75rem'
+                                        <div style={{ 
+                                            fontSize: '0.65rem',
+                                            color: '#718096',
+                                            marginBottom: '0.3rem'
                                         }}>
-                                            {wallet.position}
-                                        </span>
-                                        {wallet.position_strength && (
-                                            <span style={{ 
-                                                color: '#718096', 
-                                                fontSize: '0.7rem',
-                                                background: 'rgba(102, 126, 234, 0.1)',
-                                                padding: '0.2rem 0.5rem',
-                                                borderRadius: '4px'
-                                            }}>
-                                                {wallet.position_strength}% conviction
-                                            </span>
-                                        )}
+                                            Total Liquidity
+                                        </div>
+                                        <div style={{ 
+                                            fontSize: '1.1rem',
+                                            fontWeight: '700',
+                                            color: '#667eea'
+                                        }}>
+                                            ${depth.total_liquidity.toLocaleString()}
+                                        </div>
                                     </div>
+
+                                    {/* Bid/Ask Split */}
                                     <div style={{ 
                                         display: 'grid',
                                         gridTemplateColumns: '1fr 1fr',
                                         gap: '0.5rem',
-                                        fontSize: '0.7rem',
-                                        color: '#718096'
+                                        marginBottom: '0.5rem'
                                     }}>
                                         <div style={{ 
-                                            background: 'rgba(102, 126, 234, 0.05)',
-                                            padding: '0.3rem 0.5rem',
-                                            borderRadius: '4px'
+                                            background: 'rgba(34, 197, 94, 0.05)',
+                                            padding: '0.4rem',
+                                            borderRadius: '4px',
+                                            borderLeft: '3px solid #16a34a'
                                         }}>
-                                            <div style={{ fontSize: '0.65rem', marginBottom: '0.1rem' }}>Volume</div>
-                                            <div style={{ fontWeight: '600', color: '#4a5568' }}>
-                                                ${wallet.size.toLocaleString()}
+                                            <div style={{ fontSize: '0.65rem', color: '#16a34a', marginBottom: '0.2rem', fontWeight: '600' }}>
+                                                BUY ORDERS
+                                            </div>
+                                            <div style={{ fontSize: '0.75rem', fontWeight: '600', color: '#2d3748' }}>
+                                                {depth.total_bid_volume.toLocaleString()} shares
+                                            </div>
+                                            <div style={{ fontSize: '0.65rem', color: '#718096', marginTop: '0.2rem' }}>
+                                                {depth.bid_makers} makers • {depth.bid_orders} orders
                                             </div>
                                         </div>
                                         <div style={{ 
-                                            background: 'rgba(102, 126, 234, 0.05)',
-                                            padding: '0.3rem 0.5rem',
-                                            borderRadius: '4px'
+                                            background: 'rgba(239, 68, 68, 0.05)',
+                                            padding: '0.4rem',
+                                            borderRadius: '4px',
+                                            borderLeft: '3px solid #dc2626'
                                         }}>
-                                            <div style={{ fontSize: '0.65rem', marginBottom: '0.1rem' }}>Avg Price</div>
-                                            <div style={{ fontWeight: '600', color: '#4a5568' }}>
-                                                {wallet.entry_price}¢
+                                            <div style={{ fontSize: '0.65rem', color: '#dc2626', marginBottom: '0.2rem', fontWeight: '600' }}>
+                                                SELL ORDERS
+                                            </div>
+                                            <div style={{ fontSize: '0.75rem', fontWeight: '600', color: '#2d3748' }}>
+                                                {depth.total_ask_volume.toLocaleString()} shares
+                                            </div>
+                                            <div style={{ fontSize: '0.65rem', color: '#718096', marginTop: '0.2rem' }}>
+                                                {depth.ask_makers} makers • {depth.ask_orders} orders
                                             </div>
                                         </div>
                                     </div>
-                                    {wallet.trade_count && (
+
+                                    {/* Best Prices */}
+                                    {depth.best_bid > 0 && depth.best_ask > 0 && (
                                         <div style={{ 
-                                            marginTop: '0.5rem',
-                                            fontSize: '0.7rem',
-                                            color: '#9ca3af',
-                                            textAlign: 'center'
-                                        }}>
-                                            {wallet.trade_count} trades on this event
-                                        </div>
-                                    )}
-                                    {wallet.win_rate && (
-                                        <div style={{ 
-                                            marginTop: '0.5rem',
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
                                             padding: '0.4rem',
-                                            background: wallet.win_rate > 60 ? 'rgba(34, 197, 94, 0.1)' : 'rgba(234, 88, 12, 0.1)',
-                                            borderRadius: '6px',
-                                            borderLeft: `3px solid ${wallet.win_rate > 60 ? '#16a34a' : '#ea580c'}`
+                                            background: '#f8fafc',
+                                            borderRadius: '4px',
+                                            fontSize: '0.7rem'
                                         }}>
-                                            <div style={{ 
-                                                fontSize: '0.65rem',
-                                                color: '#718096',
-                                                marginBottom: '0.2rem'
-                                            }}>
-                                                Historical Performance
+                                            <div>
+                                                <span style={{ color: '#718096' }}>Best Bid: </span>
+                                                <span style={{ fontWeight: '600', color: '#16a34a' }}>
+                                                    {(depth.best_bid * 100).toFixed(1)}¢
+                                                </span>
                                             </div>
-                                            <div style={{ 
-                                                display: 'flex',
-                                                justifyContent: 'space-between',
-                                                fontSize: '0.7rem',
-                                                fontWeight: '600',
-                                                color: '#4a5568'
-                                            }}>
-                                                <span>Win Rate: {wallet.win_rate}%</span>
-                                                {wallet.historical_trades && (
-                                                    <span>{wallet.historical_trades} total trades</span>
-                                                )}
+                                            <div>
+                                                <span style={{ color: '#718096' }}>Best Ask: </span>
+                                                <span style={{ fontWeight: '600', color: '#dc2626' }}>
+                                                    {(depth.best_ask * 100).toFixed(1)}¢
+                                                </span>
                                             </div>
-                                            {wallet.total_profit && (
-                                                <div style={{ 
-                                                    fontSize: '0.7rem',
-                                                    color: wallet.total_profit > 0 ? '#16a34a' : '#dc2626',
-                                                    marginTop: '0.2rem',
-                                                    fontWeight: '600'
-                                                }}>
-                                                    Profit: ${wallet.total_profit.toLocaleString()}
-                                                </div>
-                                            )}
+                                            <div>
+                                                <span style={{ color: '#718096' }}>Spread: </span>
+                                                <span style={{ fontWeight: '600', color: '#4a5568' }}>
+                                                    {(depth.spread * 100).toFixed(2)}¢
+                                                </span>
+                                            </div>
                                         </div>
                                     )}
-                                </a>
+                                </div>
                             ))}
                         </div>
                     ) : (
-                        <p style={{ color: '#718096', fontSize: '0.9rem' }}>Loading trader data...</p>
+                        <p style={{ color: '#718096', fontSize: '0.9rem' }}>Loading market depth...</p>
                     )}
                 </div>
             </div>
