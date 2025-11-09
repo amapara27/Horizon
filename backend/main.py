@@ -82,6 +82,7 @@ def get_event_analysis(event_id: str):
         
         # 3. Loop through top 3 outcomes
         outcomes_analysis = []
+        event_title = event_data.get('title', '')
         
         for depth in depth_data[:3]:  # Top 3 by liquidity
             outcome_name = depth['outcome']
@@ -90,7 +91,7 @@ def get_event_analysis(event_id: str):
             print(f"Analyzing outcome: {outcome_name}")
             
             # a. Get news for this specific outcome
-            news_data = get_event_news(market_question, outcome_name, max_results=10)
+            news_data = get_event_news(event_title, market_question, outcome_name, max_results=10)
             
             # b. Analyze news sentiment
             news_sentiment = analyze_news_sentiment(

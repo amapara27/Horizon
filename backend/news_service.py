@@ -32,12 +32,13 @@ def extract_keywords(title):
     else:
         return f'"{title}"'
 
-def get_event_news(market_question, outcome_name, max_results=20):
+def get_event_news(event_title, market_question, outcome_name, max_results=20):
     """
     Fetch news articles related to a specific outcome from the last 30 days.
-    Uses a simple, broad query to maximize results.
+    Uses event title + outcome name for search query.
     
     Args:
+        event_title: The event title (e.g., "What price will Bitcoin hit in November 2024?")
         market_question: The market question (e.g., "Top Searched Person on Google in 2024")
         outcome_name: The specific outcome (e.g., "Pope Leo XIV")
         max_results: Maximum number of articles to return
@@ -52,10 +53,17 @@ def get_event_news(market_question, outcome_name, max_results=20):
     thirty_days_ago = datetime.now() - timedelta(days=30)
     from_date = thirty_days_ago.strftime('%Y-%m-%d')
     
-    # Use just the outcome name without quotes for broader results
-    # Remove special characters that might interfere
+    # Combine event title and outcome name for search query
+    # Extract key terms from event title
+    clean_title = re.sub(r'[^\w\s]', '', event_title)
+    title_words = [w for w in clean_title.split() if len(w) > 3][:3]  # Top 3 words from title
+    
+    # Clean outcome name
     clean_outcome = re.sub(r'[^\w\s]', '', outcome_name)
-    query = clean_outcome.strip()
+    
+    # Combine title keywords with outcome
+    query_parts = title_words + [clean_outcome]
+    query = ' '.join(query_parts).strip()
     
     # If query is too short or generic, don't search
     if len(query) < 3:

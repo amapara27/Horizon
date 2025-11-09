@@ -57,9 +57,33 @@ function AnalysisPage() {
                 background: '#0f172a',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                flexDirection: 'column',
+                gap: '1.5rem'
             }}>
                 <div style={{ fontSize: '1.5rem', color: '#64748b' }}>Loading analysis...</div>
+                <div style={{
+                    width: '300px',
+                    height: '4px',
+                    background: '#1e293b',
+                    borderRadius: '2px',
+                    overflow: 'hidden'
+                }}>
+                    <div style={{
+                        width: '100%',
+                        height: '100%',
+                        background: 'linear-gradient(90deg, #6366f1, #8b5cf6)',
+                        animation: 'loadingBar 1.5s ease-in-out infinite',
+                        transformOrigin: 'left'
+                    }} />
+                </div>
+                <style>{`
+                    @keyframes loadingBar {
+                        0% { transform: scaleX(0); }
+                        50% { transform: scaleX(1); }
+                        100% { transform: scaleX(0); }
+                    }
+                `}</style>
             </div>
         );
     }
