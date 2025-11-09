@@ -206,10 +206,10 @@ Provide a sentiment score from -100 to +100 based on:
 - Low liquidity + few makers + wide spreads = NEGATIVE (thin market)
 - Balanced distribution across outcomes = MORE POSITIVE
 
-Respond in JSON format with:
+Respond with ONLY valid JSON (no markdown, no explanations). Use this exact format:
 - sentiment_score: integer from -100 to +100
 - reasoning: 2-3 sentence explanation of market health
-- trader_quality: string (excellent/good/average/poor) based on participation"""
+- trader_quality: string (excellent/good/average/poor) based on market depth quality"""
     else:
         prompt = f"""Analyze the market depth and liquidity for this prediction market:
 
@@ -219,7 +219,7 @@ Market Depth:
 {json.dumps(depth_summary, indent=2)}
 
 Evaluate market health based on:
-- Total liquidity: Higher = more trader confidence
+- Total liquidity: Higher = more market confidence
 - Maker participation: More unique makers = diverse opinions and healthy market
 - Order book balance: Balanced bid/ask = efficient price discovery
 - Spread: Tighter spread = more liquid and efficient market
@@ -229,10 +229,10 @@ Provide a sentiment score from -100 to +100 based on:
 - Low liquidity + few makers + wide spreads = NEGATIVE (uncertain market)
 - Imbalanced order book = directional signal
 
-Respond in JSON format with:
+Respond with ONLY valid JSON (no markdown, no explanations). Use this exact format:
 - sentiment_score: integer from -100 to +100
 - reasoning: 2-3 sentence explanation of market quality
-- trader_quality: string (excellent/good/average/poor) based on participation"""
+- trader_quality: string (excellent/good/average/poor) based on market depth quality"""
 
     try:
         message = client.messages.create(

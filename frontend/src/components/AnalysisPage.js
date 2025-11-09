@@ -662,7 +662,7 @@ function AnalysisPage() {
                         textAlign: 'center'
                     }}>
                         <h3 style={{ color: '#2d3748', fontSize: '1rem', marginBottom: '1rem' }}>
-                            💼 Trader Quality Score
+                            �  Market Depth Score
                         </h3>
                         {walletSentiment ? (
                             <>
@@ -692,7 +692,7 @@ function AnalysisPage() {
                                         marginBottom: '0.75rem',
                                         textTransform: 'uppercase'
                                     }}>
-                                        {walletSentiment.trader_quality} traders
+                                        {walletSentiment.trader_quality} liquidity
                                     </div>
                                 )}
                                 <p style={{ 

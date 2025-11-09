@@ -5,10 +5,10 @@ from collections import defaultdict
 GAMMA_API = "https://gamma-api.polymarket.com"
 CLOB_API = "https://clob.polymarket.com"
 
-def get_event_smart_wallets(event_id, limit=6):
+def get_event_market_depth(event_id, limit=6):
     """
     Fetches aggregated market depth data from Polymarket's order books.
-    Returns market liquidity metrics instead of individual trader addresses.
+    Returns market liquidity metrics including order book depth, unique makers, and spreads.
     """
     try:
         # Get event details
@@ -133,12 +133,12 @@ def get_event_smart_wallets(event_id, limit=6):
         return []
 
 
-def get_trader_historical_performance(wallet_address):
+def get_market_statistics(event_id):
     """
-    This would require access to historical blockchain data or Polymarket's private APIs.
-    Currently not implemented as it requires authentication or blockchain indexing.
+    This would provide additional market statistics like historical volume trends.
+    Currently not implemented as it requires historical data access.
     """
     return {
-        "address": wallet_address,
-        "note": "Historical data requires blockchain indexing or authenticated API access"
+        "event_id": event_id,
+        "note": "Historical market statistics require additional data sources"
     }
