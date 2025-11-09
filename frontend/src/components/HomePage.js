@@ -1,13 +1,14 @@
 // frontend/src/components/HomePage.js
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import * as api from '../services/api';
 
 /**
  * A helper component to render a single event.
  * (Unchanged)
  */
-const EventItem = ({ event }) => {
+const EventItem = ({ event, onClick }) => {
     try {
         const market = event.markets[0];
         const title = event.title || 'N/A';
@@ -18,7 +19,7 @@ const EventItem = ({ event }) => {
         const noPrice = market.bestAsk || 'N/A';
 
         return (
-            <div className="event-item">
+            <div className="event-item" onClick={() => onClick(event.id)}>
                 <div className="event-title">{title}</div>
                 <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
                     <div className="event-price" style={{ background: 'rgba(34, 197, 94, 0.1)', color: '#16a34a' }}>
@@ -39,7 +40,7 @@ const EventItem = ({ event }) => {
  * NEW: A helper component to render a column's content
  * This now handles the new { data, error } state
  */
-const ColumnContent = ({ error, data }) => {
+const ColumnContent = ({ error, data, onEventClick }) => {
     if (error) {
         // Convert error to string to prevent [Object Object]
         const errorMessage = typeof error === 'string' ? error : JSON.stringify(error);
@@ -57,7 +58,7 @@ const ColumnContent = ({ error, data }) => {
     }
 
     // We have data, so we map it
-    return data.map(event => <EventItem key={event.id} event={event} />);
+    return data.map(event => <EventItem key={event.id} event={event} onClick={onEventClick} />);
 };
 
 
@@ -65,10 +66,16 @@ const ColumnContent = ({ error, data }) => {
  * The main dashboard page
  */
 function HomePage() {
+    const navigate = useNavigate();
+    
     // State is now simpler, just data and error
     const [techEvents, setTechEvents] = useState({ data: null, error: null });
     const [trendingEvents, setTrendingEvents] = useState({ data: null, error: null });
     const [sportsEvents, setSportsEvents] = useState({ data: null, error: null });
+
+    const handleEventClick = (eventId) => {
+        navigate(`/analysis/${eventId}`);
+    };
 
     useEffect(() => {
         // Function to fetch all data
@@ -124,21 +131,21 @@ function HomePage() {
                 <div className="dashboard-column">
                     <h2>💻 Tech Events</h2>
                     <div className="event-list">
-                        <ColumnContent data={techEvents.data} error={techEvents.error} />
+                        <ColumnContent data={techEvents.data} error={techEvents.error} onEventClick={handleEventClick} />
                     </div>
                 </div>
                 
                 <div className="dashboard-column">
                     <h2>🔥 Trending Events</h2>
                     <div className="event-list">
-                        <ColumnContent data={trendingEvents.data} error={trendingEvents.error} />
+                        <ColumnContent data={trendingEvents.data} error={trendingEvents.error} onEventClick={handleEventClick} />
                     </div>
                 </div>
 
                 <div className="dashboard-column">
                     <h2>⚽ Sports Events</h2>
                     <div className="event-list">
-                        <ColumnContent data={sportsEvents.data} error={sportsEvents.error} />
+                        <ColumnContent data={sportsEvents.data} error={sportsEvents.error} onEventClick={handleEventClick} />
                     </div>
                 </div>
             </div>
