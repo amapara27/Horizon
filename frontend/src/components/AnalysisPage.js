@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { fetchEventAnalysis, fetchEventDetails } from '../services/api';
 
@@ -10,11 +10,7 @@ function AnalysisPage() {
     const [error, setError] = useState(null);
     const [selectedOutcome, setSelectedOutcome] = useState(0);
 
-    useEffect(() => {
-        loadEventData();
-    }, [eventId]);
-
-    const loadEventData = async () => {
+    const loadEventData = useCallback(async () => {
         try {
             setLoading(true);
             setError(null);
@@ -32,7 +28,11 @@ function AnalysisPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [eventId]);
+
+    useEffect(() => {
+        loadEventData();
+    }, [loadEventData]);
 
     const getScoreColor = (score) => {
         if (score >= 70) return '#10b981';
