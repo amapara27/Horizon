@@ -364,59 +364,131 @@ function AnalysisPage() {
                     overflowY: 'auto'
                 }}>
                     <h3 style={{ color: '#2d3748', marginBottom: '1rem', fontSize: '1.2rem' }}>
-                        💼 Smart Wallets
+                        💼 Top Traders
                     </h3>
                     {smartWallets.length > 0 ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                             {smartWallets.map((wallet, idx) => (
-                                <div key={idx} style={{
-                                    background: 'linear-gradient(135deg, #f6f8fb 0%, #ffffff 100%)',
-                                    border: '1px solid #e2e8f0',
-                                    borderRadius: '8px',
-                                    padding: '0.75rem',
-                                    fontSize: '0.85rem'
-                                }}>
+                                <a
+                                    key={idx}
+                                    href={`https://polymarket.com/profile/${wallet.address}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{
+                                        background: 'linear-gradient(135deg, #f6f8fb 0%, #ffffff 100%)',
+                                        border: '1px solid #e2e8f0',
+                                        borderRadius: '8px',
+                                        padding: '0.75rem',
+                                        fontSize: '0.85rem',
+                                        textDecoration: 'none',
+                                        color: 'inherit',
+                                        transition: 'all 0.2s ease',
+                                        display: 'block'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.borderColor = '#667eea';
+                                        e.currentTarget.style.transform = 'translateX(5px)';
+                                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.2)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.borderColor = '#e2e8f0';
+                                        e.currentTarget.style.transform = 'translateX(0)';
+                                        e.currentTarget.style.boxShadow = 'none';
+                                    }}
+                                >
                                     <div style={{ 
-                                        fontFamily: 'monospace', 
-                                        fontSize: '0.75rem',
-                                        color: '#4a5568',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
                                         marginBottom: '0.5rem'
                                     }}>
-                                        {wallet.address.substring(0, 6)}...{wallet.address.substring(38)}
+                                        <div style={{ 
+                                            fontFamily: 'monospace', 
+                                            fontSize: '0.75rem',
+                                            color: '#4a5568',
+                                            fontWeight: '600'
+                                        }}>
+                                            {wallet.address.substring(0, 6)}...{wallet.address.substring(38)}
+                                        </div>
+                                        <div style={{
+                                            fontSize: '0.7rem',
+                                            color: '#667eea',
+                                            fontWeight: '600'
+                                        }}>
+                                            #{idx + 1}
+                                        </div>
                                     </div>
                                     <div style={{ 
                                         display: 'flex', 
                                         justifyContent: 'space-between',
-                                        marginBottom: '0.5rem'
+                                        marginBottom: '0.5rem',
+                                        alignItems: 'center'
                                     }}>
                                         <span style={{
                                             padding: '0.25rem 0.5rem',
                                             borderRadius: '4px',
                                             background: wallet.position === 'YES' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
                                             color: wallet.position === 'YES' ? '#16a34a' : '#dc2626',
-                                            fontWeight: '600',
+                                            fontWeight: '700',
                                             fontSize: '0.75rem'
                                         }}>
                                             {wallet.position}
                                         </span>
-                                        <span style={{ color: '#718096', fontSize: '0.75rem' }}>
-                                            WR: {wallet.win_rate}%
-                                        </span>
+                                        {wallet.position_strength && (
+                                            <span style={{ 
+                                                color: '#718096', 
+                                                fontSize: '0.7rem',
+                                                background: 'rgba(102, 126, 234, 0.1)',
+                                                padding: '0.2rem 0.5rem',
+                                                borderRadius: '4px'
+                                            }}>
+                                                {wallet.position_strength}% conviction
+                                            </span>
+                                        )}
                                     </div>
                                     <div style={{ 
-                                        display: 'flex', 
-                                        justifyContent: 'space-between',
-                                        fontSize: '0.75rem',
+                                        display: 'grid',
+                                        gridTemplateColumns: '1fr 1fr',
+                                        gap: '0.5rem',
+                                        fontSize: '0.7rem',
                                         color: '#718096'
                                     }}>
-                                        <span>Size: ${wallet.size.toLocaleString()}</span>
-                                        <span>Entry: {wallet.entry_price}</span>
+                                        <div style={{ 
+                                            background: 'rgba(102, 126, 234, 0.05)',
+                                            padding: '0.3rem 0.5rem',
+                                            borderRadius: '4px'
+                                        }}>
+                                            <div style={{ fontSize: '0.65rem', marginBottom: '0.1rem' }}>Volume</div>
+                                            <div style={{ fontWeight: '600', color: '#4a5568' }}>
+                                                ${wallet.size.toLocaleString()}
+                                            </div>
+                                        </div>
+                                        <div style={{ 
+                                            background: 'rgba(102, 126, 234, 0.05)',
+                                            padding: '0.3rem 0.5rem',
+                                            borderRadius: '4px'
+                                        }}>
+                                            <div style={{ fontSize: '0.65rem', marginBottom: '0.1rem' }}>Avg Price</div>
+                                            <div style={{ fontWeight: '600', color: '#4a5568' }}>
+                                                {wallet.entry_price}¢
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
+                                    {wallet.trade_count && (
+                                        <div style={{ 
+                                            marginTop: '0.5rem',
+                                            fontSize: '0.7rem',
+                                            color: '#9ca3af',
+                                            textAlign: 'center'
+                                        }}>
+                                            {wallet.trade_count} trades
+                                        </div>
+                                    )}
+                                </a>
                             ))}
                         </div>
                     ) : (
-                        <p style={{ color: '#718096', fontSize: '0.9rem' }}>Loading wallet data...</p>
+                        <p style={{ color: '#718096', fontSize: '0.9rem' }}>Loading trader data...</p>
                     )}
                 </div>
             </div>
