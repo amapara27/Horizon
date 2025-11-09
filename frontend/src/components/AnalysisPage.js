@@ -6,8 +6,9 @@ const API_BASE = 'http://127.0.0.1:8000';
 function AnalysisPage() {
     const { eventId } = useParams();
     const [eventData, setEventData] = useState(null);
+    const [newsArticles, setNewsArticles] = useState([]);
     const [smartWallets, setSmartWallets] = useState([]);
-    const [eventSentiment, setEventSentiment] = useState(null);
+    const [newsSentiment, setNewsSentiment] = useState(null);
     const [walletSentiment, setWalletSentiment] = useState(null);
     const [combinedSentiment, setCombinedSentiment] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -29,6 +30,16 @@ function AnalysisPage() {
                 setLoading(false);
             });
 
+        // Fetch news articles
+        fetch(`${API_BASE}/api/event/${eventId}/news`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.articles) {
+                    setNewsArticles(data.articles);
+                }
+            })
+            .catch(err => console.error('Error fetching news:', err));
+
         // Fetch smart wallets
         fetch(`${API_BASE}/api/event/${eventId}/smart-wallets`)
             .then(res => res.json())
@@ -41,17 +52,17 @@ function AnalysisPage() {
         
         try {
             // Fetch all three sentiment analyses
-            const [eventRes, walletRes, combinedRes] = await Promise.all([
-                fetch(`${API_BASE}/api/event/${eventId}/sentiment`),
+            const [newsRes, walletRes, combinedRes] = await Promise.all([
+                fetch(`${API_BASE}/api/event/${eventId}/news-sentiment`),
                 fetch(`${API_BASE}/api/event/${eventId}/wallet-sentiment`),
                 fetch(`${API_BASE}/api/event/${eventId}/combined-sentiment`)
             ]);
 
-            const eventData = await eventRes.json();
+            const newsData = await newsRes.json();
             const walletData = await walletRes.json();
             const combinedData = await combinedRes.json();
 
-            setEventSentiment(eventData);
+            setNewsSentiment(newsData);
             setWalletSentiment(walletData);
             setCombinedSentiment(combinedData);
         } catch (err) {
@@ -165,19 +176,75 @@ function AnalysisPage() {
                 maxWidth: '1600px',
                 margin: '0 auto 2rem auto'
             }}>
-                {/* Left Section - Empty for now */}
+                {/* Left Section - News Articles */}
                 <div style={{
                     background: 'rgba(255, 255, 255, 0.95)',
                     borderRadius: '16px',
                     padding: '2rem',
-                    boxShadow: '0 10px 40px rgba(0, 0, 0, 0.1)'
+                    boxShadow: '0 10px 40px rgba(0, 0, 0, 0.1)',
+                    maxHeight: '600px',
+                    overflowY: 'auto'
                 }}>
                     <h3 style={{ color: '#2d3748', marginBottom: '1rem', fontSize: '1.2rem' }}>
-                        📊 Market Data
+                        📰 Related News
                     </h3>
-                    <p style={{ color: '#718096', fontSize: '0.9rem' }}>
-                        Additional insights coming soon...
-                    </p>
+                    {newsArticles.length > 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                            {newsArticles.map((article, idx) => (
+                                <a 
+                                    key={idx}
+                                    href={article.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{
+                                        background: 'linear-gradient(135deg, #f6f8fb 0%, #ffffff 100%)',
+                                        border: '1px solid #e2e8f0',
+                                        borderRadius: '8px',
+                                        padding: '0.75rem',
+                                        textDecoration: 'none',
+                                        color: 'inherit',
+                                        transition: 'all 0.2s ease'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.borderColor = '#667eea';
+                                        e.currentTarget.style.transform = 'translateX(5px)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.borderColor = '#e2e8f0';
+                                        e.currentTarget.style.transform = 'translateX(0)';
+                                    }}
+                                >
+                                    <div style={{ 
+                                        fontSize: '0.85rem',
+                                        fontWeight: '600',
+                                        color: '#2d3748',
+                                        marginBottom: '0.5rem',
+                                        lineHeight: '1.3'
+                                    }}>
+                                        {article.title}
+                                    </div>
+                                    <div style={{ 
+                                        fontSize: '0.75rem',
+                                        color: '#718096',
+                                        marginBottom: '0.5rem'
+                                    }}>
+                                        {article.source}
+                                    </div>
+                                    {article.description && (
+                                        <div style={{ 
+                                            fontSize: '0.75rem',
+                                            color: '#4a5568',
+                                            lineHeight: '1.4'
+                                        }}>
+                                            {article.description.substring(0, 100)}...
+                                        </div>
+                                    )}
+                                </a>
+                            ))}
+                        </div>
+                    ) : (
+                        <p style={{ color: '#718096', fontSize: '0.9rem' }}>Loading news articles...</p>
+                    )}
                 </div>
 
                 {/* Center Section - Market Display (Thinner) */}
@@ -396,7 +463,7 @@ function AnalysisPage() {
                     gridTemplateColumns: 'repeat(3, 1fr)',
                     gap: '1.5rem'
                 }}>
-                    {/* Event Sentiment */}
+                    {/* News Sentiment - LEFT */}
                     <div style={{
                         background: 'linear-gradient(135deg, #f6f8fb 0%, #ffffff 100%)',
                         border: '2px solid #e2e8f0',
@@ -405,17 +472,17 @@ function AnalysisPage() {
                         textAlign: 'center'
                     }}>
                         <h3 style={{ color: '#2d3748', fontSize: '1rem', marginBottom: '1rem' }}>
-                            Event Analysis
+                            📰 News Sentiment
                         </h3>
-                        {eventSentiment ? (
+                        {newsSentiment ? (
                             <>
                                 <div style={{
                                     fontSize: '3rem',
                                     fontWeight: '800',
-                                    color: getSentimentColor(eventSentiment.sentiment_score),
+                                    color: getSentimentColor(newsSentiment.sentiment_score),
                                     marginBottom: '0.5rem'
                                 }}>
-                                    {eventSentiment.sentiment_score > 0 ? '+' : ''}{eventSentiment.sentiment_score}%
+                                    {newsSentiment.sentiment_score > 0 ? '+' : ''}{newsSentiment.sentiment_score}%
                                 </div>
                                 <p style={{ 
                                     fontSize: '0.85rem', 
@@ -423,7 +490,7 @@ function AnalysisPage() {
                                     lineHeight: '1.5',
                                     textAlign: 'left'
                                 }}>
-                                    {eventSentiment.reasoning}
+                                    {newsSentiment.reasoning}
                                 </p>
                             </>
                         ) : (
@@ -433,44 +500,7 @@ function AnalysisPage() {
                         )}
                     </div>
 
-                    {/* Wallet Sentiment */}
-                    <div style={{
-                        background: 'linear-gradient(135deg, #f6f8fb 0%, #ffffff 100%)',
-                        border: '2px solid #e2e8f0',
-                        borderRadius: '12px',
-                        padding: '1.5rem',
-                        textAlign: 'center'
-                    }}>
-                        <h3 style={{ color: '#2d3748', fontSize: '1rem', marginBottom: '1rem' }}>
-                            Smart Wallet Analysis
-                        </h3>
-                        {walletSentiment ? (
-                            <>
-                                <div style={{
-                                    fontSize: '3rem',
-                                    fontWeight: '800',
-                                    color: getSentimentColor(walletSentiment.sentiment_score),
-                                    marginBottom: '0.5rem'
-                                }}>
-                                    {walletSentiment.sentiment_score > 0 ? '+' : ''}{walletSentiment.sentiment_score}%
-                                </div>
-                                <p style={{ 
-                                    fontSize: '0.85rem', 
-                                    color: '#4a5568',
-                                    lineHeight: '1.5',
-                                    textAlign: 'left'
-                                }}>
-                                    {walletSentiment.reasoning}
-                                </p>
-                            </>
-                        ) : (
-                            <p style={{ color: '#9ca3af', fontSize: '0.9rem' }}>
-                                Click "Run Analysis" to start
-                            </p>
-                        )}
-                    </div>
-
-                    {/* Combined Sentiment */}
+                    {/* Combined Sentiment - MIDDLE */}
                     <div style={{
                         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                         border: '2px solid #5568d3',
@@ -480,7 +510,7 @@ function AnalysisPage() {
                         color: 'white'
                     }}>
                         <h3 style={{ fontSize: '1rem', marginBottom: '1rem', opacity: 0.95 }}>
-                            Combined Sentiment
+                            🎯 Overall Sentiment
                         </h3>
                         {combinedSentiment ? (
                             <>
@@ -514,6 +544,43 @@ function AnalysisPage() {
                             </>
                         ) : (
                             <p style={{ opacity: 0.8, fontSize: '0.9rem' }}>
+                                Click "Run Analysis" to start
+                            </p>
+                        )}
+                    </div>
+
+                    {/* Wallet Sentiment - RIGHT */}
+                    <div style={{
+                        background: 'linear-gradient(135deg, #f6f8fb 0%, #ffffff 100%)',
+                        border: '2px solid #e2e8f0',
+                        borderRadius: '12px',
+                        padding: '1.5rem',
+                        textAlign: 'center'
+                    }}>
+                        <h3 style={{ color: '#2d3748', fontSize: '1rem', marginBottom: '1rem' }}>
+                            💼 Smart Wallet Sentiment
+                        </h3>
+                        {walletSentiment ? (
+                            <>
+                                <div style={{
+                                    fontSize: '3rem',
+                                    fontWeight: '800',
+                                    color: getSentimentColor(walletSentiment.sentiment_score),
+                                    marginBottom: '0.5rem'
+                                }}>
+                                    {walletSentiment.sentiment_score > 0 ? '+' : ''}{walletSentiment.sentiment_score}%
+                                </div>
+                                <p style={{ 
+                                    fontSize: '0.85rem', 
+                                    color: '#4a5568',
+                                    lineHeight: '1.5',
+                                    textAlign: 'left'
+                                }}>
+                                    {walletSentiment.reasoning}
+                                </p>
+                            </>
+                        ) : (
+                            <p style={{ color: '#9ca3af', fontSize: '0.9rem' }}>
                                 Click "Run Analysis" to start
                             </p>
                         )}

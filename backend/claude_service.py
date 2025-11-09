@@ -75,6 +75,56 @@ Respond in JSON format with:
         return {"sentiment_score": 0, "reasoning": f"Error analyzing sentiment: {str(e)}"}
 
 
+def analyze_news_sentiment(news_articles, event_data):
+    """
+    Analyzes news articles related to an event and returns a sentiment score.
+    """
+    if not CLAUDE_AVAILABLE or not client:
+        return {
+            "sentiment_score": 0, 
+            "reasoning": "Claude AI is not available. Please check your API key and dependencies."
+        }
+    
+    if not news_articles or len(news_articles) == 0:
+        return {"sentiment_score": 0, "reasoning": "No news articles available for analysis"}
+    
+    # Format news articles for Claude
+    news_text = "\n\n".join([
+        f"Title: {article.get('title', 'N/A')}\nDescription: {article.get('description', 'N/A')}\nSource: {article.get('source', 'N/A')}"
+        for article in news_articles[:10]  # Limit to 10 articles
+    ])
+    
+    prompt = f"""Analyze these news articles related to the prediction market event: "{event_data.get('title', 'N/A')}"
+
+News Articles:
+{news_text}
+
+Based on the news sentiment, tone, and implications, provide a sentiment score from -100 (very bearish/negative) to +100 (very bullish/positive).
+
+Consider:
+- Overall tone of the news (positive, negative, neutral)
+- Likelihood of the event occurring based on news
+- Market-moving information in the articles
+- Credibility and recency of sources
+
+Respond in JSON format with:
+- sentiment_score: integer from -100 to +100
+- reasoning: 2-3 sentence explanation of your analysis"""
+
+    try:
+        message = client.messages.create(
+            model="claude-3-5-sonnet-20241022",
+            max_tokens=512,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        
+        response_text = message.content[0].text
+        result = json.loads(response_text)
+        return result
+    except Exception as e:
+        return {"sentiment_score": 0, "reasoning": f"Error analyzing news sentiment: {str(e)}"}
+
+
 def analyze_smart_wallets(wallet_data, event_data):
     """
     Analyzes smart wallet activity for a specific event.
@@ -120,9 +170,9 @@ Respond in JSON format with:
         return {"sentiment_score": 0, "reasoning": f"Error analyzing wallets: {str(e)}"}
 
 
-def generate_combined_sentiment(event_sentiment, wallet_sentiment, event_data):
+def generate_combined_sentiment(news_sentiment, wallet_sentiment, event_data):
     """
-    Generates a final combined sentiment score.
+    Generates a final combined sentiment score from news and wallet analysis.
     """
     if not CLAUDE_AVAILABLE or not client:
         return {
@@ -135,14 +185,14 @@ def generate_combined_sentiment(event_sentiment, wallet_sentiment, event_data):
 
 Event: {event_data.get('title', 'N/A')}
 
-Event Analysis:
-{json.dumps(event_sentiment, indent=2)}
+News Sentiment Analysis:
+{json.dumps(news_sentiment, indent=2)}
 
 Smart Wallet Analysis:
 {json.dumps(wallet_sentiment, indent=2)}
 
 Provide a final weighted sentiment score from -100 (very bearish) to +100 (very bullish).
-Weight event fundamentals (60%) and smart wallet activity (40%).
+Weight news sentiment (50%) and smart wallet activity (50%) equally.
 
 Respond in JSON format with:
 - sentiment_score: integer from -100 to +100
