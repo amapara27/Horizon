@@ -273,7 +273,8 @@ function AnalysisPage() {
                             <div style={{
                                 fontSize: '0.875rem',
                                 color: '#94a3b8',
-                                lineHeight: '1.5'
+                                lineHeight: '1.8',
+                                whiteSpace: 'pre-line'
                             }}>
                                 {currentOutcome.news.reasoning}
                             </div>
