@@ -1,52 +1,58 @@
-// frontend/src/services/api.js
+const API_BASE = 'http://127.0.0.1:8000';
 
-const BACKEND_API = "http://127.0.0.1:8000";
-
-/**
- * A robust helper function that *never* throws.
- * It always returns an object:
- * { data: <the_data>, error: null } on success
- * { data: null, error: <error_message> } on failure
- */
-async function fetchFromBackend(endpoint) {
-    try {
-        const response = await fetch(`${BACKEND_API}${endpoint}`);
-        
-        if (!response.ok) {
-            // Try to parse the error message from FastAPI
-            try {
-                const errorData = await response.json();
-                const message = errorData.detail || `HTTP error! status: ${response.status}`;
-                return { data: null, error: message }; // Return error
-            } catch (jsonError) {
-                // Fallback error
-                return { data: null, error: `HTTP error! status: ${response.status}` };
-            }
-        }
-        
-        // Success case
-        const data = await response.json();
-        return { data: data, error: null }; // Return data
-
-    } catch (networkError) {
-        // This catches "Failed to fetch" if the backend is down
-        // Convert error to string to avoid [Object Object]
-        const errorMessage = networkError?.message || String(networkError) || "Network error occurred";
-        return { data: null, error: errorMessage };
+// Analysis endpoints
+export const fetchEventAnalysis = async (eventId) => {
+    const response = await fetch(`${API_BASE}/api/event/${eventId}/analysis`);
+    if (!response.ok) {
+        throw new Error('Failed to fetch event analysis');
     }
-}
-
-// --- Exported API Functions ---
-// These now pass the { data, error } object back to the component
-
-export const fetchTechEvents = () => {
-    return fetchFromBackend("/api/tech-events");
+    return response.json();
 };
 
-export const fetchTrendingEvents = () => {
-    return fetchFromBackend("/api/trending-events");
+export const fetchEventDetails = async (eventId) => {
+    const response = await fetch(`${API_BASE}/api/event/${eventId}`);
+    if (!response.ok) {
+        throw new Error('Failed to fetch event details');
+    }
+    return response.json();
 };
 
-export const fetchSportsEvents = () => {
-    return fetchFromBackend("/api/sports-events");
+// Home page endpoints
+export const fetchTechEvents = async () => {
+    try {
+        const response = await fetch(`${API_BASE}/api/tech-events`);
+        if (!response.ok) {
+            throw new Error('Failed to fetch tech events');
+        }
+        const data = await response.json();
+        return { data, error: null };
+    } catch (err) {
+        return { data: null, error: err.message };
+    }
+};
+
+export const fetchTrendingEvents = async () => {
+    try {
+        const response = await fetch(`${API_BASE}/api/trending-events`);
+        if (!response.ok) {
+            throw new Error('Failed to fetch trending events');
+        }
+        const data = await response.json();
+        return { data, error: null };
+    } catch (err) {
+        return { data: null, error: err.message };
+    }
+};
+
+export const fetchSportsEvents = async () => {
+    try {
+        const response = await fetch(`${API_BASE}/api/sports-events`);
+        if (!response.ok) {
+            throw new Error('Failed to fetch sports events');
+        }
+        const data = await response.json();
+        return { data, error: null };
+    } catch (err) {
+        return { data: null, error: err.message };
+    }
 };

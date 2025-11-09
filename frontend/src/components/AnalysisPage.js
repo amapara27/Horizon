@@ -1,714 +1,609 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-
-const API_BASE = 'http://127.0.0.1:8000';
+import { fetchEventAnalysis, fetchEventDetails } from '../services/api';
 
 function AnalysisPage() {
     const { eventId } = useParams();
     const [eventData, setEventData] = useState(null);
-    const [newsArticles, setNewsArticles] = useState([]);
-    const [smartWallets, setSmartWallets] = useState([]);
-    const [newsSentiment, setNewsSentiment] = useState(null);
-    const [walletSentiment, setWalletSentiment] = useState(null);
-    const [combinedSentiment, setCombinedSentiment] = useState(null);
+    const [analysis, setAnalysis] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [analysisLoading, setAnalysisLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [selectedOutcome, setSelectedOutcome] = useState(0);
 
     useEffect(() => {
-        // Fetch event data
-        fetch(`${API_BASE}/api/event/${eventId}`)
-            .then(res => {
-                if (!res.ok) throw new Error('Failed to fetch event');
-                return res.json();
-            })
-            .then(data => {
-                setEventData(data);
-                setLoading(false);
-            })
-            .catch(err => {
-                console.error('Error fetching event:', err);
-                setLoading(false);
-            });
-
-        // Fetch news articles
-        fetch(`${API_BASE}/api/event/${eventId}/news`)
-            .then(res => res.json())
-            .then(data => {
-                if (data.articles) {
-                    setNewsArticles(data.articles);
-                }
-            })
-            .catch(err => console.error('Error fetching news:', err));
-
-        // Fetch market depth data
-        fetch(`${API_BASE}/api/event/${eventId}/market-depth`)
-            .then(res => res.json())
-            .then(data => setSmartWallets(data))
-            .catch(err => console.error('Error fetching market depth:', err));
+        loadEventData();
     }, [eventId]);
 
-    const runAnalysis = async () => {
-        setAnalysisLoading(true);
-        
+    const loadEventData = async () => {
         try {
-            // Fetch all three sentiment analyses
-            const [newsRes, walletRes, combinedRes] = await Promise.all([
-                fetch(`${API_BASE}/api/event/${eventId}/news-sentiment`),
-                fetch(`${API_BASE}/api/event/${eventId}/wallet-sentiment`),
-                fetch(`${API_BASE}/api/event/${eventId}/combined-sentiment`)
+            setLoading(true);
+            setError(null);
+            
+            const [details, analysisData] = await Promise.all([
+                fetchEventDetails(eventId),
+                fetchEventAnalysis(eventId)
             ]);
-
-            const newsData = await newsRes.json();
-            const walletData = await walletRes.json();
-            const combinedData = await combinedRes.json();
-
-            setNewsSentiment(newsData);
-            setWalletSentiment(walletData);
-            setCombinedSentiment(combinedData);
+            
+            setEventData(details);
+            setAnalysis(analysisData);
         } catch (err) {
-            console.error('Error running analysis:', err);
+            console.error('Error loading event data:', err);
+            setError(err.message);
         } finally {
-            setAnalysisLoading(false);
+            setLoading(false);
         }
+    };
+
+    const getScoreColor = (score) => {
+        if (score >= 70) return '#10b981';
+        if (score >= 50) return '#84cc16';
+        if (score >= 30) return '#f59e0b';
+        if (score >= 10) return '#f97316';
+        return '#ef4444';
+    };
+
+    const getSentimentColor = (score) => {
+        if (score > 50) return '#10b981';
+        if (score > 0) return '#84cc16';
+        if (score === 0) return '#64748b';
+        if (score > -50) return '#f97316';
+        return '#ef4444';
     };
 
     if (loading) {
         return (
             <div style={{ 
-                padding: '2rem',
-                textAlign: 'center',
-                minHeight: '100vh',
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                minHeight: '100vh', 
+                background: '#0f172a',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
             }}>
-                <p style={{ color: 'white', fontSize: '1.2rem' }}>Loading...</p>
+                <div style={{ fontSize: '1.5rem', color: '#64748b' }}>Loading analysis...</div>
             </div>
         );
     }
 
-    if (!eventData) {
+    if (error) {
         return (
             <div style={{ 
-                padding: '2rem',
-                textAlign: 'center',
-                minHeight: '100vh',
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                minHeight: '100vh', 
+                background: '#0f172a',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexDirection: 'column',
+                gap: '1rem'
             }}>
-                <p style={{ color: 'white', fontSize: '1.2rem' }}>Event not found</p>
-                <Link to="/" style={{ color: 'white' }}>← Back to Dashboard</Link>
+                <div style={{ fontSize: '1.5rem', color: '#ef4444' }}>Error</div>
+                <div style={{ color: '#64748b' }}>{error}</div>
+                <Link to="/" style={{ color: '#6366f1', textDecoration: 'none' }}>
+                    ← Back to Home
+                </Link>
             </div>
         );
     }
 
-    const eventSlug = eventData.slug || '';
-    const markets = eventData.markets || [];
-    
-    // Check if it's a multi-outcome event (has groupItemTitle) or binary
-    const isMultiOutcome = markets.length > 1 && markets[0].groupItemTitle;
-    
-    // Color palette for outcomes - more aesthetic pastels and vibrant colors
-    const colors = [
-        { bg: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', text: 'white' },  // Emerald
-        { bg: 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)', text: 'white' },  // Rose
-        { bg: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', text: 'white' },  // Indigo
-        { bg: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', text: 'white' },  // Amber
-        { bg: 'linear-gradient(135deg, #a855f7 0%, #9333ea 100%)', text: 'white' },  // Purple
-        { bg: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)', text: 'white' }   // Cyan
-    ];
-    
-    // Prepare outcomes data
-    let outcomesData = [];
-    if (isMultiOutcome) {
-        // Multi-outcome: each market is an outcome
-        outcomesData = markets.map(market => {
-            const prices = JSON.parse(market.outcomePrices || '[0, 0]');
-            return {
-                label: market.groupItemTitle || market.question,
-                price: (parseFloat(prices[0]) * 100).toFixed(1)
-            };
-        });
-    } else {
-        // Binary: single market with Yes/No
-        const market = markets[0] || {};
-        const outcomes = JSON.parse(market.outcomes || '["Yes", "No"]');
-        const prices = JSON.parse(market.outcomePrices || '[0, 0]');
-        outcomesData = outcomes.map((outcome, i) => ({
-            label: outcome,
-            price: (parseFloat(prices[i]) * 100).toFixed(1)
-        }));
+    if (!eventData || !analysis) {
+        return (
+            <div style={{ 
+                minHeight: '100vh', 
+                background: '#0f172a',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+            }}>
+                <div style={{ fontSize: '1.5rem', color: '#64748b' }}>No data available</div>
+            </div>
+        );
     }
 
-    const getSentimentColor = (score) => {
-        if (score > 50) return '#16a34a';
-        if (score > 20) return '#65a30d';
-        if (score > -20) return '#ca8a04';
-        if (score > -50) return '#ea580c';
-        return '#dc2626';
-    };
+    const currentOutcome = analysis.outcomes[selectedOutcome];
 
     return (
-        <div style={{ 
+        <div style={{
             minHeight: '100vh',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            padding: '2rem'
+            background: '#0f172a',
+            color: '#e2e8f0'
         }}>
-            <Link 
-                to="/" 
-                style={{
-                    display: 'inline-block',
-                    marginBottom: '1rem',
-                    padding: '0.75rem 1.5rem',
-                    background: 'rgba(255, 255, 255, 0.95)',
-                    color: '#667eea',
-                    textDecoration: 'none',
-                    borderRadius: '8px',
-                    fontWeight: '600',
-                    boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)'
-                }}
-            >
-                ← Back to Dashboard
-            </Link>
-
-            {/* Three Column Layout */}
+            {/* Header */}
             <div style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 2fr 1fr',
-                gap: '1.5rem',
-                maxWidth: '1600px',
-                margin: '0 auto 2rem auto'
+                background: '#1e293b',
+                borderBottom: '1px solid #334155',
+                padding: '1.5rem 2rem'
             }}>
-                {/* Left Section - News Articles */}
-                <div style={{
-                    background: 'rgba(255, 255, 255, 0.95)',
-                    borderRadius: '16px',
-                    padding: '2rem',
-                    boxShadow: '0 10px 40px rgba(0, 0, 0, 0.1)',
-                    maxHeight: '600px',
-                    overflowY: 'auto'
-                }}>
-                    <h3 style={{ color: '#2d3748', marginBottom: '1rem', fontSize: '1.2rem' }}>
-                        📰 Related News
-                    </h3>
-                    {newsArticles.length > 0 ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                            {newsArticles.map((article, idx) => (
-                                <a 
-                                    key={idx}
-                                    href={article.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    style={{
-                                        background: 'linear-gradient(135deg, #f6f8fb 0%, #ffffff 100%)',
-                                        border: '1px solid #e2e8f0',
-                                        borderRadius: '8px',
-                                        padding: '0.75rem',
-                                        textDecoration: 'none',
-                                        color: 'inherit',
-                                        transition: 'all 0.2s ease'
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.borderColor = '#667eea';
-                                        e.currentTarget.style.transform = 'translateX(5px)';
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.borderColor = '#e2e8f0';
-                                        e.currentTarget.style.transform = 'translateX(0)';
-                                    }}
-                                >
-                                    <div style={{ 
-                                        fontSize: '0.85rem',
-                                        fontWeight: '600',
-                                        color: '#2d3748',
-                                        marginBottom: '0.5rem',
-                                        lineHeight: '1.3'
-                                    }}>
-                                        {article.title}
-                                    </div>
-                                    <div style={{ 
-                                        fontSize: '0.75rem',
-                                        color: '#718096',
-                                        marginBottom: '0.5rem'
-                                    }}>
-                                        {article.source}
-                                    </div>
-                                    {article.description && (
-                                        <div style={{ 
-                                            fontSize: '0.75rem',
-                                            color: '#4a5568',
-                                            lineHeight: '1.4'
-                                        }}>
-                                            {article.description.substring(0, 100)}...
-                                        </div>
-                                    )}
-                                </a>
-                            ))}
-                        </div>
-                    ) : (
-                        <p style={{ color: '#718096', fontSize: '0.9rem' }}>Loading news articles...</p>
-                    )}
-                </div>
-
-                {/* Center Section - Market Display (Thinner) */}
-                <div style={{
-                    background: 'rgba(255, 255, 255, 0.95)',
-                    borderRadius: '16px',
-                    padding: '2rem',
-                    boxShadow: '0 10px 40px rgba(0, 0, 0, 0.1)'
-                }}>
-                    <h1 style={{ color: '#2d3748', marginBottom: '1rem', fontSize: '1.5rem' }}>
+                <div style={{ maxWidth: '1600px', margin: '0 auto' }}>
+                    <Link to="/" style={{
+                        color: '#94a3b8',
+                        textDecoration: 'none',
+                        fontSize: '0.875rem',
+                        display: 'inline-block',
+                        marginBottom: '0.75rem',
+                        transition: 'color 0.2s'
+                    }}>
+                        ← Back to Markets
+                    </Link>
+                    <h1 style={{
+                        fontSize: '1.75rem',
+                        fontWeight: '700',
+                        color: '#f1f5f9',
+                        marginBottom: '0.5rem',
+                        lineHeight: '1.3'
+                    }}>
                         {eventData.title}
                     </h1>
-                    
-                    {eventData.image && (
-                        <img 
-                            src={eventData.image} 
-                            alt={eventData.title}
-                            style={{ 
-                                width: '100%', 
-                                maxHeight: '200px', 
-                                objectFit: 'cover', 
-                                borderRadius: '12px',
-                                marginBottom: '1rem'
-                            }}
-                        />
+                    {eventData.description && (
+                        <p style={{ 
+                            color: '#94a3b8', 
+                            fontSize: '0.875rem', 
+                            lineHeight: '1.5',
+                            maxWidth: '900px',
+                            margin: '0 auto',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical'
+                        }}>
+                            {eventData.description}
+                        </p>
                     )}
+                </div>
+            </div>
 
-                    {/* Outcome Prices */}
-                    <div style={{ 
-                        display: 'grid', 
-                        gridTemplateColumns: outcomesData.length === 2 ? '1fr 1fr' : 'repeat(auto-fit, minmax(120px, 1fr))',
-                        gap: '0.5rem',
-                        marginBottom: '1rem'
-                    }}>
-                        {outcomesData.map((outcome, index) => {
-                            const color = colors[index % colors.length];
-                            return (
-                                <div key={index} style={{
-                                    background: color.bg,
-                                    padding: '0.75rem',
-                                    borderRadius: '8px',
-                                    textAlign: 'center',
-                                    color: color.text,
-                                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
-                                }}>
-                                    <div style={{ 
-                                        fontSize: '0.7rem', 
-                                        opacity: 0.95, 
-                                        marginBottom: '0.3rem',
-                                        fontWeight: '600'
-                                    }}>
-                                        {outcome.label.toUpperCase()}
-                                    </div>
-                                    <div style={{ fontSize: '1.5rem', fontWeight: '700' }}>{outcome.price}¢</div>
-                                </div>
-                            );
-                        })}
-                    </div>
-
-                    <div style={{ 
-                        display: 'grid', 
-                        gridTemplateColumns: 'repeat(3, 1fr)', 
-                        gap: '0.75rem',
-                        marginBottom: '1rem',
-                        padding: '0.75rem',
-                        background: '#f8fafc',
-                        borderRadius: '8px',
-                        fontSize: '0.85rem'
-                    }}>
-                        <div>
-                            <div style={{ fontSize: '0.7rem', color: '#64748b', marginBottom: '0.2rem' }}>Volume</div>
-                            <div style={{ fontSize: '0.95rem', fontWeight: '600', color: '#2d3748' }}>
-                                ${(eventData.volumeNum || 0).toLocaleString()}
-                            </div>
-                        </div>
-                        <div>
-                            <div style={{ fontSize: '0.7rem', color: '#64748b', marginBottom: '0.2rem' }}>Liquidity</div>
-                            <div style={{ fontSize: '0.95rem', fontWeight: '600', color: '#2d3748' }}>
-                                ${(eventData.liquidityNum || 0).toLocaleString()}
-                            </div>
-                        </div>
-                        <div>
-                            <div style={{ fontSize: '0.7rem', color: '#64748b', marginBottom: '0.2rem' }}>24h Volume</div>
-                            <div style={{ fontSize: '0.95rem', fontWeight: '600', color: '#2d3748' }}>
-                                ${(eventData.volume24hr || 0).toLocaleString()}
-                            </div>
-                        </div>
-                    </div>
-
-                    <a 
-                        href={`https://polymarket.com/event/${eventSlug}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                            display: 'block',
-                            textAlign: 'center',
-                            padding: '0.75rem',
-                            background: '#667eea',
-                            color: 'white',
-                            textDecoration: 'none',
-                            borderRadius: '8px',
-                            fontWeight: '600',
-                            fontSize: '0.9rem'
-                        }}
-                    >
-                        Trade on Polymarket →
-                    </a>
+            {/* Main Content */}
+            <div style={{ maxWidth: '1600px', margin: '0 auto', padding: '2rem' }}>
+                {/* Outcome Selector */}
+                <div style={{
+                    display: 'flex',
+                    gap: '0.75rem',
+                    marginBottom: '2rem',
+                    overflowX: 'auto',
+                    paddingBottom: '0.5rem'
+                }}>
+                    {analysis.outcomes.map((outcome, idx) => (
+                        <button
+                            key={idx}
+                            onClick={() => setSelectedOutcome(idx)}
+                            style={{
+                                background: selectedOutcome === idx ? '#6366f1' : '#1e293b',
+                                color: selectedOutcome === idx ? 'white' : '#94a3b8',
+                                border: selectedOutcome === idx ? '1px solid #6366f1' : '1px solid #334155',
+                                padding: '0.75rem 1.5rem',
+                                borderRadius: '8px',
+                                fontSize: '0.875rem',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                whiteSpace: 'nowrap'
+                            }}
+                        >
+                            {outcome.outcome_name}
+                            <span style={{ 
+                                marginLeft: '0.5rem', 
+                                opacity: 0.7,
+                                fontSize: '0.75rem'
+                            }}>
+                                {outcome.current_price.toFixed(1)}¢
+                            </span>
+                        </button>
+                    ))}
                 </div>
 
-                {/* Right Section - Market Depth */}
+                {/* Three Column Layout */}
                 <div style={{
-                    background: 'rgba(255, 255, 255, 0.95)',
-                    borderRadius: '16px',
-                    padding: '2rem',
-                    boxShadow: '0 10px 40px rgba(0, 0, 0, 0.1)',
-                    maxHeight: '600px',
-                    overflowY: 'auto'
+                    display: 'grid',
+                    gridTemplateColumns: '350px 1fr 350px',
+                    gap: '1.5rem',
+                    marginBottom: '2rem'
                 }}>
-                    <h3 style={{ color: '#2d3748', marginBottom: '0.5rem', fontSize: '1.2rem' }}>
-                        📊 Market Depth
-                    </h3>
-                    <p style={{ color: '#718096', fontSize: '0.75rem', marginBottom: '1rem' }}>
-                        Aggregated order book liquidity
-                    </p>
-                    {smartWallets.length > 0 ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                            {smartWallets.map((depth, idx) => (
+                    {/* Left: News Articles */}
+                    <div style={{
+                        background: '#1e293b',
+                        borderRadius: '12px',
+                        border: '1px solid #334155',
+                        padding: '1.5rem',
+                        maxHeight: '800px',
+                        overflowY: 'auto'
+                    }}>
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            marginBottom: '1rem'
+                        }}>
+                            <span style={{ fontSize: '1.25rem' }}>📰</span>
+                            <h3 style={{
+                                fontSize: '1rem',
+                                fontWeight: '700',
+                                color: '#f1f5f9',
+                                margin: 0
+                            }}>
+                                News Sentiment
+                            </h3>
+                        </div>
+
+                        {/* News Score */}
+                        <div style={{
+                            background: '#0f172a',
+                            borderRadius: '8px',
+                            padding: '1rem',
+                            marginBottom: '1rem',
+                            border: '1px solid #334155'
+                        }}>
+                            <div style={{
+                                fontSize: '2.5rem',
+                                fontWeight: '800',
+                                color: getSentimentColor(currentOutcome.news.score),
+                                marginBottom: '0.5rem'
+                            }}>
+                                {currentOutcome.news.score > 0 ? '+' : ''}{currentOutcome.news.score}
+                            </div>
+                            <div style={{
+                                fontSize: '0.75rem',
+                                color: '#64748b',
+                                marginBottom: '0.75rem'
+                            }}>
+                                {currentOutcome.news.articles_count} articles (last 7 days)
+                            </div>
+                            <div style={{
+                                fontSize: '0.875rem',
+                                color: '#94a3b8',
+                                lineHeight: '1.5'
+                            }}>
+                                {currentOutcome.news.reasoning}
+                            </div>
+                        </div>
+
+                        {/* Query Info */}
+                        {currentOutcome.news.query_used && (
+                            <div style={{
+                                fontSize: '0.75rem',
+                                color: '#64748b',
+                                padding: '0.75rem',
+                                background: '#0f172a',
+                                borderRadius: '6px',
+                                border: '1px solid #334155',
+                                fontFamily: 'monospace',
+                                marginBottom: '1rem'
+                            }}>
+                                Query: {currentOutcome.news.query_used}
+                            </div>
+                        )}
+
+                        {/* News Articles List */}
+                        {currentOutcome.news.articles && currentOutcome.news.articles.length > 0 && (
+                            <div style={{ marginTop: '1rem' }}>
+                                <div style={{
+                                    fontSize: '0.75rem',
+                                    color: '#64748b',
+                                    marginBottom: '0.75rem',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.5px',
+                                    fontWeight: '600'
+                                }}>
+                                    Recent Articles
+                                </div>
+                                {currentOutcome.news.articles.slice(0, 5).map((article, idx) => (
+                                    <a
+                                        key={idx}
+                                        href={article.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        style={{
+                                            display: 'block',
+                                            background: '#0f172a',
+                                            border: '1px solid #334155',
+                                            borderRadius: '6px',
+                                            padding: '0.75rem',
+                                            marginBottom: '0.5rem',
+                                            textDecoration: 'none',
+                                            transition: 'all 0.2s'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.borderColor = '#6366f1';
+                                            e.currentTarget.style.background = '#1e293b';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.borderColor = '#334155';
+                                            e.currentTarget.style.background = '#0f172a';
+                                        }}
+                                    >
+                                        <div style={{
+                                            fontSize: '0.875rem',
+                                            color: '#f1f5f9',
+                                            marginBottom: '0.25rem',
+                                            fontWeight: '600',
+                                            lineHeight: '1.4'
+                                        }}>
+                                            {article.title}
+                                        </div>
+                                        <div style={{
+                                            fontSize: '0.75rem',
+                                            color: '#64748b'
+                                        }}>
+                                            {article.source} • {new Date(article.publishedAt).toLocaleDateString()}
+                                        </div>
+                                    </a>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Center: Polymarket Embed */}
+                    <div style={{
+                        background: '#1e293b',
+                        borderRadius: '12px',
+                        border: '1px solid #334155',
+                        padding: '1.5rem',
+                        display: 'flex',
+                        flexDirection: 'column'
+                    }}>
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            marginBottom: '1rem'
+                        }}>
+                            <span style={{ fontSize: '1.25rem' }}>📊</span>
+                            <h3 style={{
+                                fontSize: '1rem',
+                                fontWeight: '700',
+                                color: '#f1f5f9',
+                                margin: 0
+                            }}>
+                                Live Market
+                            </h3>
+                        </div>
+
+                        {/* Polymarket Link */}
+                        <div style={{
+                            flex: 1,
+                            background: '#0f172a',
+                            borderRadius: '8px',
+                            border: '1px solid #334155',
+                            padding: '2rem',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            minHeight: '600px'
+                        }}>
+                            <div style={{
+                                fontSize: '3rem',
+                                marginBottom: '1rem'
+                            }}>📊</div>
+                            <h3 style={{
+                                fontSize: '1.25rem',
+                                fontWeight: '700',
+                                color: '#f1f5f9',
+                                marginBottom: '0.5rem'
+                            }}>
+                                View on Polymarket
+                            </h3>
+                            <p style={{
+                                color: '#94a3b8',
+                                marginBottom: '1.5rem',
+                                textAlign: 'center',
+                                maxWidth: '400px'
+                            }}>
+                                Trade this market, view full order book, and see detailed charts on Polymarket
+                            </p>
+                            <a
+                                href={`https://polymarket.com/event/${eventId}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                    background: '#6366f1',
+                                    color: 'white',
+                                    padding: '0.75rem 2rem',
+                                    borderRadius: '8px',
+                                    textDecoration: 'none',
+                                    fontWeight: '600',
+                                    fontSize: '0.95rem',
+                                    transition: 'all 0.2s',
+                                    display: 'inline-block'
+                                }}
+                            >
+                                Open in Polymarket →
+                            </a>
+                        </div>
+                    </div>
+
+                    {/* Right: Liquidity Panel */}
+                    <div style={{
+                        background: '#1e293b',
+                        borderRadius: '12px',
+                        border: '1px solid #334155',
+                        padding: '1.5rem',
+                        maxHeight: '800px',
+                        overflowY: 'auto'
+                    }}>
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            marginBottom: '1rem'
+                        }}>
+                            <span style={{ fontSize: '1.25rem' }}>💧</span>
+                            <h3 style={{
+                                fontSize: '1rem',
+                                fontWeight: '700',
+                                color: '#f1f5f9',
+                                margin: 0
+                            }}>
+                                Liquidity Score
+                            </h3>
+                        </div>
+
+                        {/* Liquidity Score */}
+                        <div style={{
+                            background: '#0f172a',
+                            borderRadius: '8px',
+                            padding: '1.5rem',
+                            marginBottom: '1rem',
+                            border: '1px solid #334155',
+                            textAlign: 'center'
+                        }}>
+                            <div style={{
+                                fontSize: '3.5rem',
+                                fontWeight: '800',
+                                color: getScoreColor(currentOutcome.liquidity.score),
+                                marginBottom: '0.5rem',
+                                lineHeight: '1'
+                            }}>
+                                {currentOutcome.liquidity.score}
+                            </div>
+                            <div style={{
+                                fontSize: '0.875rem',
+                                color: '#64748b',
+                                marginBottom: '1rem'
+                            }}>
+                                out of 100
+                            </div>
+                            <div style={{
+                                display: 'inline-block',
+                                padding: '0.5rem 1rem',
+                                background: getScoreColor(currentOutcome.liquidity.score) + '20',
+                                color: getScoreColor(currentOutcome.liquidity.score),
+                                borderRadius: '6px',
+                                fontSize: '0.875rem',
+                                fontWeight: '700',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.5px'
+                            }}>
+                                {currentOutcome.liquidity.level}
+                            </div>
+                        </div>
+
+                        {/* Liquidity Details */}
+                        <div style={{
+                            background: '#0f172a',
+                            borderRadius: '8px',
+                            padding: '1rem',
+                            border: '1px solid #334155'
+                        }}>
+                            <div style={{
+                                fontSize: '0.75rem',
+                                color: '#64748b',
+                                marginBottom: '0.5rem',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.5px',
+                                fontWeight: '600'
+                            }}>
+                                Total Liquidity
+                            </div>
+                            <div style={{
+                                fontSize: '1.5rem',
+                                fontWeight: '700',
+                                color: '#f1f5f9',
+                                marginBottom: '1rem'
+                            }}>
+                                ${currentOutcome.liquidity.amount.toLocaleString()}
+                            </div>
+                            <div style={{
+                                fontSize: '0.875rem',
+                                color: '#94a3b8',
+                                lineHeight: '1.6'
+                            }}>
+                                {currentOutcome.liquidity.reasoning}
+                            </div>
+                        </div>
+
+                        {/* All Outcomes Liquidity */}
+                        <div style={{ marginTop: '1.5rem' }}>
+                            <div style={{
+                                fontSize: '0.75rem',
+                                color: '#64748b',
+                                marginBottom: '0.75rem',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.5px',
+                                fontWeight: '600'
+                            }}>
+                                All Outcomes
+                            </div>
+                            {analysis.outcomes.map((outcome, idx) => (
                                 <div
                                     key={idx}
                                     style={{
-                                        background: 'linear-gradient(135deg, #f6f8fb 0%, #ffffff 100%)',
-                                        border: '1px solid #e2e8f0',
-                                        borderRadius: '8px',
+                                        background: '#0f172a',
+                                        border: '1px solid #334155',
+                                        borderRadius: '6px',
                                         padding: '0.75rem',
-                                        fontSize: '0.85rem'
+                                        marginBottom: '0.5rem',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s',
+                                        opacity: selectedOutcome === idx ? 1 : 0.6
                                     }}
+                                    onClick={() => setSelectedOutcome(idx)}
                                 >
-                                    {/* Market Question (if multi-outcome) */}
-                                    {depth.market && smartWallets.length > 2 && (
-                                        <div style={{ 
-                                            fontSize: '0.7rem',
-                                            color: '#718096',
-                                            marginBottom: '0.4rem',
-                                            fontStyle: 'italic',
-                                            borderBottom: '1px solid #e2e8f0',
-                                            paddingBottom: '0.3rem'
-                                        }}>
-                                            {depth.market}
-                                        </div>
-                                    )}
-                                    
-                                    <div style={{ 
+                                    <div style={{
+                                        fontSize: '0.75rem',
+                                        color: '#94a3b8',
+                                        marginBottom: '0.25rem'
+                                    }}>
+                                        {outcome.outcome_name}
+                                    </div>
+                                    <div style={{
                                         display: 'flex',
                                         justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                        marginBottom: '0.75rem'
+                                        alignItems: 'center'
                                     }}>
-                                        <div style={{ 
-                                            fontSize: '1.1rem',
-                                            color: '#1a202c',
-                                            fontWeight: '800',
-                                            letterSpacing: '-0.02em'
+                                        <div style={{
+                                            fontSize: '0.875rem',
+                                            fontWeight: '700',
+                                            color: getScoreColor(outcome.liquidity.score)
                                         }}>
-                                            {depth.outcome}
+                                            {outcome.liquidity.score}/100
                                         </div>
                                         <div style={{
-                                            fontSize: '0.7rem',
-                                            color: '#667eea',
-                                            fontWeight: '700',
-                                            background: 'rgba(102, 126, 234, 0.15)',
-                                            padding: '0.3rem 0.6rem',
-                                            borderRadius: '6px'
+                                            fontSize: '0.75rem',
+                                            color: '#64748b'
                                         }}>
-                                            {depth.unique_makers} makers
+                                            ${outcome.liquidity.amount.toLocaleString()}
                                         </div>
                                     </div>
-                                    
-                                    {/* Liquidity Bar */}
-                                    <div style={{ 
-                                        marginBottom: '0.75rem',
-                                        padding: '0.5rem',
-                                        background: 'rgba(102, 126, 234, 0.05)',
-                                        borderRadius: '6px'
-                                    }}>
-                                        <div style={{ 
-                                            fontSize: '0.65rem',
-                                            color: '#718096',
-                                            marginBottom: '0.3rem'
-                                        }}>
-                                            Total Liquidity
-                                        </div>
-                                        <div style={{ 
-                                            fontSize: '1.1rem',
-                                            fontWeight: '700',
-                                            color: '#667eea'
-                                        }}>
-                                            ${depth.total_liquidity.toLocaleString()}
-                                        </div>
-                                    </div>
-
-                                    {/* Bid/Ask Split */}
-                                    <div style={{ 
-                                        display: 'grid',
-                                        gridTemplateColumns: '1fr 1fr',
-                                        gap: '0.5rem',
-                                        marginBottom: '0.5rem'
-                                    }}>
-                                        <div style={{ 
-                                            background: 'rgba(34, 197, 94, 0.05)',
-                                            padding: '0.4rem',
-                                            borderRadius: '4px',
-                                            borderLeft: '3px solid #16a34a'
-                                        }}>
-                                            <div style={{ fontSize: '0.65rem', color: '#16a34a', marginBottom: '0.2rem', fontWeight: '600' }}>
-                                                BUY ORDERS
-                                            </div>
-                                            <div style={{ fontSize: '0.75rem', fontWeight: '600', color: '#2d3748' }}>
-                                                {depth.total_bid_volume.toLocaleString()} shares
-                                            </div>
-                                            <div style={{ fontSize: '0.65rem', color: '#718096', marginTop: '0.2rem' }}>
-                                                {depth.bid_makers} makers • {depth.bid_orders} orders
-                                            </div>
-                                        </div>
-                                        <div style={{ 
-                                            background: 'rgba(239, 68, 68, 0.05)',
-                                            padding: '0.4rem',
-                                            borderRadius: '4px',
-                                            borderLeft: '3px solid #dc2626'
-                                        }}>
-                                            <div style={{ fontSize: '0.65rem', color: '#dc2626', marginBottom: '0.2rem', fontWeight: '600' }}>
-                                                SELL ORDERS
-                                            </div>
-                                            <div style={{ fontSize: '0.75rem', fontWeight: '600', color: '#2d3748' }}>
-                                                {depth.total_ask_volume.toLocaleString()} shares
-                                            </div>
-                                            <div style={{ fontSize: '0.65rem', color: '#718096', marginTop: '0.2rem' }}>
-                                                {depth.ask_makers} makers • {depth.ask_orders} orders
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Best Prices */}
-                                    {depth.best_bid > 0 && depth.best_ask > 0 && (
-                                        <div style={{ 
-                                            display: 'flex',
-                                            justifyContent: 'space-between',
-                                            padding: '0.4rem',
-                                            background: '#f8fafc',
-                                            borderRadius: '4px',
-                                            fontSize: '0.7rem'
-                                        }}>
-                                            <div>
-                                                <span style={{ color: '#718096' }}>Best Bid: </span>
-                                                <span style={{ fontWeight: '600', color: '#16a34a' }}>
-                                                    {(depth.best_bid * 100).toFixed(1)}¢
-                                                </span>
-                                            </div>
-                                            <div>
-                                                <span style={{ color: '#718096' }}>Best Ask: </span>
-                                                <span style={{ fontWeight: '600', color: '#dc2626' }}>
-                                                    {(depth.best_ask * 100).toFixed(1)}¢
-                                                </span>
-                                            </div>
-                                            <div>
-                                                <span style={{ color: '#718096' }}>Spread: </span>
-                                                <span style={{ fontWeight: '600', color: '#4a5568' }}>
-                                                    {(depth.spread * 100).toFixed(2)}¢
-                                                </span>
-                                            </div>
-                                        </div>
-                                    )}
                                 </div>
                             ))}
                         </div>
-                    ) : (
-                        <p style={{ color: '#718096', fontSize: '0.9rem' }}>Loading market depth...</p>
-                    )}
-                </div>
-            </div>
-
-            {/* Bottom AI Analysis Section */}
-            <div style={{
-                background: 'rgba(255, 255, 255, 0.95)',
-                borderRadius: '16px',
-                padding: '2rem',
-                maxWidth: '1600px',
-                margin: '0 auto',
-                boxShadow: '0 10px 40px rgba(0, 0, 0, 0.1)'
-            }}>
-                <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    alignItems: 'center',
-                    marginBottom: '2rem'
-                }}>
-                    <h2 style={{ color: '#2d3748', margin: 0, fontSize: '1.5rem' }}>
-                        🤖 AI Sentiment Analysis
-                    </h2>
-                    <button
-                        onClick={runAnalysis}
-                        disabled={analysisLoading}
-                        style={{
-                            padding: '0.75rem 1.5rem',
-                            background: analysisLoading ? '#9ca3af' : '#667eea',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '8px',
-                            fontWeight: '600',
-                            cursor: analysisLoading ? 'not-allowed' : 'pointer',
-                            fontSize: '0.9rem'
-                        }}
-                    >
-                        {analysisLoading ? 'Analyzing...' : 'Run Analysis'}
-                    </button>
+                    </div>
                 </div>
 
-                {/* Three Analysis Subsections */}
+                {/* Bottom: AI Summary */}
                 <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(3, 1fr)',
-                    gap: '1.5rem'
+                    background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                    borderRadius: '12px',
+                    padding: '2.5rem',
+                    boxShadow: '0 4px 24px rgba(99, 102, 241, 0.3)'
                 }}>
-                    {/* News Sentiment - LEFT */}
                     <div style={{
-                        background: 'linear-gradient(135deg, #f6f8fb 0%, #ffffff 100%)',
-                        border: '2px solid #e2e8f0',
-                        borderRadius: '12px',
-                        padding: '1.5rem',
-                        textAlign: 'center'
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.75rem',
+                        marginBottom: '1.5rem'
                     }}>
-                        <h3 style={{ color: '#2d3748', fontSize: '1rem', marginBottom: '1rem' }}>
-                            📰 News Sentiment
+                        <span style={{ fontSize: '1.75rem' }}>🎯</span>
+                        <h3 style={{
+                            fontSize: '1.5rem',
+                            fontWeight: '700',
+                            color: 'white',
+                            margin: 0
+                        }}>
+                            Overall Analysis
                         </h3>
-                        {newsSentiment ? (
-                            <>
-                                <div style={{
-                                    fontSize: '3rem',
-                                    fontWeight: '800',
-                                    color: getSentimentColor(newsSentiment.sentiment_score),
-                                    marginBottom: '0.5rem'
-                                }}>
-                                    {newsSentiment.sentiment_score > 0 ? '+' : ''}{newsSentiment.sentiment_score}%
-                                </div>
-                                <p style={{ 
-                                    fontSize: '0.85rem', 
-                                    color: '#4a5568',
-                                    lineHeight: '1.5',
-                                    textAlign: 'left'
-                                }}>
-                                    {newsSentiment.reasoning}
-                                </p>
-                            </>
-                        ) : (
-                            <p style={{ color: '#9ca3af', fontSize: '0.9rem' }}>
-                                Click "Run Analysis" to start
-                            </p>
-                        )}
                     </div>
-
-                    {/* Combined Sentiment - MIDDLE */}
                     <div style={{
-                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                        border: '2px solid #5568d3',
-                        borderRadius: '12px',
-                        padding: '1.5rem',
+                        fontSize: '1.125rem',
+                        lineHeight: '2',
+                        color: 'white',
+                        fontWeight: '500',
+                        whiteSpace: 'pre-line',
                         textAlign: 'center',
-                        color: 'white'
+                        maxWidth: '1000px',
+                        margin: '0 auto'
                     }}>
-                        <h3 style={{ fontSize: '1rem', marginBottom: '1rem', opacity: 0.95 }}>
-                            🎯 Overall Sentiment
-                        </h3>
-                        {combinedSentiment ? (
-                            <>
-                                <div style={{
-                                    fontSize: '3rem',
-                                    fontWeight: '800',
-                                    marginBottom: '0.5rem'
-                                }}>
-                                    {combinedSentiment.sentiment_score > 0 ? '+' : ''}{combinedSentiment.sentiment_score}%
-                                </div>
-                                <div style={{
-                                    display: 'inline-block',
-                                    padding: '0.25rem 0.75rem',
-                                    background: 'rgba(255, 255, 255, 0.2)',
-                                    borderRadius: '12px',
-                                    fontSize: '0.75rem',
-                                    fontWeight: '600',
-                                    marginBottom: '0.75rem',
-                                    textTransform: 'uppercase'
-                                }}>
-                                    {combinedSentiment.confidence} confidence
-                                </div>
-                                <p style={{ 
-                                    fontSize: '0.85rem',
-                                    lineHeight: '1.5',
-                                    textAlign: 'left',
-                                    opacity: 0.95
-                                }}>
-                                    {combinedSentiment.reasoning}
-                                </p>
-                            </>
-                        ) : (
-                            <p style={{ opacity: 0.8, fontSize: '0.9rem' }}>
-                                Click "Run Analysis" to start
-                            </p>
-                        )}
-                    </div>
-
-                    {/* Wallet Sentiment - RIGHT */}
-                    <div style={{
-                        background: 'linear-gradient(135deg, #f6f8fb 0%, #ffffff 100%)',
-                        border: '2px solid #e2e8f0',
-                        borderRadius: '12px',
-                        padding: '1.5rem',
-                        textAlign: 'center'
-                    }}>
-                        <h3 style={{ color: '#2d3748', fontSize: '1rem', marginBottom: '1rem' }}>
-                            �  Market Depth Score
-                        </h3>
-                        {walletSentiment ? (
-                            <>
-                                <div style={{
-                                    fontSize: '3rem',
-                                    fontWeight: '800',
-                                    color: getSentimentColor(walletSentiment.sentiment_score),
-                                    marginBottom: '0.5rem'
-                                }}>
-                                    {walletSentiment.sentiment_score > 0 ? '+' : ''}{walletSentiment.sentiment_score}%
-                                </div>
-                                {walletSentiment.trader_quality && (
-                                    <div style={{
-                                        display: 'inline-block',
-                                        padding: '0.25rem 0.75rem',
-                                        background: walletSentiment.trader_quality === 'excellent' ? 'rgba(34, 197, 94, 0.1)' :
-                                                   walletSentiment.trader_quality === 'good' ? 'rgba(101, 163, 13, 0.1)' :
-                                                   walletSentiment.trader_quality === 'average' ? 'rgba(202, 138, 4, 0.1)' :
-                                                   'rgba(239, 68, 68, 0.1)',
-                                        color: walletSentiment.trader_quality === 'excellent' ? '#16a34a' :
-                                               walletSentiment.trader_quality === 'good' ? '#65a30d' :
-                                               walletSentiment.trader_quality === 'average' ? '#ca8a04' :
-                                               '#dc2626',
-                                        borderRadius: '12px',
-                                        fontSize: '0.75rem',
-                                        fontWeight: '600',
-                                        marginBottom: '0.75rem',
-                                        textTransform: 'uppercase'
-                                    }}>
-                                        {walletSentiment.trader_quality} liquidity
-                                    </div>
-                                )}
-                                <p style={{ 
-                                    fontSize: '0.85rem', 
-                                    color: '#4a5568',
-                                    lineHeight: '1.5',
-                                    textAlign: 'left'
-                                }}>
-                                    {walletSentiment.reasoning}
-                                </p>
-                            </>
-                        ) : (
-                            <p style={{ color: '#9ca3af', fontSize: '0.9rem' }}>
-                                Click "Run Analysis" to start
-                            </p>
-                        )}
+                        {currentOutcome.final_summary}
                     </div>
                 </div>
             </div>

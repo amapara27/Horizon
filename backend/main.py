@@ -8,10 +8,8 @@ from polymarket_fetcher import (
     get_sports_events_service
 )
 from claude_service import (
-    analyze_event_sentiment,
-    analyze_market_depth,
-    generate_combined_sentiment,
-    analyze_news_sentiment
+    analyze_news_sentiment,
+    generate_final_summary
 )
 from market_depth_service import get_event_market_depth
 from news_service import get_event_news
@@ -50,81 +48,96 @@ def get_event_details(event_id: str):
     except requests.exceptions.RequestException as e:
         raise HTTPException(status_code=500, detail=f"Error fetching event: {str(e)}")
 
-@app.get("/api/event/{event_id}/market-depth")
-def get_event_market_depth_endpoint(event_id: str):
-    """Get aggregated market depth data for a specific event"""
-    depth_data = get_event_market_depth(event_id)
-    return depth_data
-
-@app.get("/api/event/{event_id}/news")
-def get_event_news_endpoint(event_id: str):
-    """Get news articles related to a specific event"""
+@app.get("/api/event/{event_id}/analysis")
+def get_event_analysis(event_id: str):
+    """
+    Primary analysis endpoint that orchestrates all data gathering and AI analysis.
+    
+    Returns:
+        {
+            "event_data": {...},
+            "outcomes": [
+                {
+                    "outcome_name": "...",
+                    "current_price": 45.2,
+                    "liquidity": {...},
+                    "news": {...},
+                    "final_summary": "..."
+                },
+                ...
+            ]
+        }
+    """
     try:
-        # Fetch event data to get the title
+        # 1. Get event data
         response = requests.get(f"https://gamma-api.polymarket.com/events/{event_id}")
         response.raise_for_status()
         event_data = response.json()
         
-        # Get news based on event title
-        news = get_event_news(event_data.get('title', ''), max_results=10)
-        return news
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching news: {str(e)}")
-
-@app.get("/api/event/{event_id}/news-sentiment")
-def get_news_sentiment_endpoint(event_id: str):
-    """Get AI sentiment analysis for news articles"""
-    try:
-        # Fetch event data to get the title
-        response = requests.get(f"https://gamma-api.polymarket.com/events/{event_id}")
-        response.raise_for_status()
-        event_data = response.json()
-        
-        # Get news articles
-        news = get_event_news(event_data.get('title', ''), max_results=10)
-        
-        # Analyze news sentiment
-        sentiment = analyze_news_sentiment(news.get('articles', []), event_data)
-        return sentiment
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error analyzing news sentiment: {str(e)}")
-
-@app.get("/api/event/{event_id}/market-depth-sentiment")
-def get_market_depth_sentiment(event_id: str):
-    """Get AI analysis of market depth and liquidity"""
-    try:
-        # Fetch event and market depth data
-        response = requests.get(f"https://gamma-api.polymarket.com/events/{event_id}")
-        response.raise_for_status()
-        event_data = response.json()
-        
+        # 2. Get market depth (factual liquidity scores)
         depth_data = get_event_market_depth(event_id)
         
-        # Analyze market depth sentiment
-        sentiment = analyze_market_depth(depth_data, event_data)
-        return sentiment
+        if not depth_data:
+            raise HTTPException(status_code=404, detail="No market data found for this event")
+        
+        # 3. Loop through top 3 outcomes
+        outcomes_analysis = []
+        
+        for depth in depth_data[:3]:  # Top 3 by liquidity
+            outcome_name = depth['outcome']
+            market_question = depth['market_question']
+            
+            print(f"Analyzing outcome: {outcome_name}")
+            
+            # a. Get news for this specific outcome
+            news_data = get_event_news(market_question, outcome_name, max_results=10)
+            
+            # b. Analyze news sentiment
+            news_sentiment = analyze_news_sentiment(
+                news_data.get('articles', []),
+                outcome_name,
+                market_question
+            )
+            
+            # c. Generate final summary
+            final_summary = generate_final_summary(
+                outcome_name,
+                news_sentiment,
+                depth
+            )
+            
+            # Bundle everything together
+            outcomes_analysis.append({
+                "outcome_name": outcome_name,
+                "current_price": depth['current_price'],
+                "liquidity": {
+                    "amount": depth['liquidity'],
+                    "score": depth['liquidity_score'],
+                    "level": depth['liquidity_level'],
+                    "reasoning": depth['reasoning']
+                },
+                "news": {
+                    "score": news_sentiment.get('score', 0),
+                    "reasoning": news_sentiment.get('reasoning', 'No analysis available'),
+                    "articles_count": len(news_data.get('articles', [])),
+                    "articles": news_data.get('articles', [])[:5],  # Include top 5 articles
+                    "query_used": news_data.get('query_used', '')
+                },
+                "final_summary": final_summary.get('summary', 'No summary available')
+            })
+        
+        return {
+            "event_data": {
+                "id": event_data.get('id'),
+                "title": event_data.get('title'),
+                "description": event_data.get('description'),
+                "volume": event_data.get('volumeNum', 0),
+                "liquidity": event_data.get('liquidityNum', 0)
+            },
+            "outcomes": outcomes_analysis
+        }
+        
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching event data: {str(e)}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error analyzing market depth: {str(e)}")
-
-@app.get("/api/event/{event_id}/combined-sentiment")
-def get_combined_sentiment(event_id: str):
-    """Get combined AI sentiment analysis"""
-    try:
-        # Fetch event data
-        response = requests.get(f"https://gamma-api.polymarket.com/events/{event_id}")
-        response.raise_for_status()
-        event_data = response.json()
-        
-        # Get news articles
-        news = get_event_news(event_data.get('title', ''), max_results=10)
-        news_sentiment = analyze_news_sentiment(news.get('articles', []), event_data)
-        
-        # Get market depth analysis
-        depth_data = get_event_market_depth(event_id)
-        depth_sentiment = analyze_market_depth(depth_data, event_data)
-        
-        # Generate combined sentiment
-        combined = generate_combined_sentiment(news_sentiment, depth_sentiment, event_data)
-        return combined
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error generating combined sentiment: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error analyzing event: {str(e)}")

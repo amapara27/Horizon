@@ -107,20 +107,22 @@ function HomePage() {
         <>
             <div style={{ 
                 textAlign: 'center', 
-                padding: '2rem 1rem 1rem 1rem',
-                color: 'white'
+                padding: '3rem 1rem 2rem 1rem',
+                background: '#1e293b',
+                borderBottom: '1px solid #334155'
             }}>
                 <h1 style={{ 
                     fontSize: '2.5rem', 
                     fontWeight: '800',
                     margin: '0 0 0.5rem 0',
-                    textShadow: '0 2px 10px rgba(0,0,0,0.2)'
+                    color: '#f1f5f9',
+                    letterSpacing: '-0.02em'
                 }}>
                     Horizon Dashboard
                 </h1>
                 <p style={{ 
                     fontSize: '1.1rem', 
-                    opacity: '0.9',
+                    color: '#94a3b8',
                     margin: 0
                 }}>
                     Real-time prediction market insights

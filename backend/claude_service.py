@@ -21,105 +21,25 @@ except Exception as e:
     client = None
     CLAUDE_AVAILABLE = False
 
-def get_unavailable_response(include_trader_quality=False):
-    """Returns a standard response when Claude AI is unavailable"""
-    response = {
-        "sentiment_score": 0,
-        "reasoning": "AI analysis unavailable. Please add a valid CLAUDE_API_KEY to backend/.env file. Get your API key at: https://console.anthropic.com/"
-    }
-    if include_trader_quality:
-        response["trader_quality"] = "unknown"
-    return response
-
-def analyze_event_sentiment(event_data):
+def analyze_news_sentiment(news_articles, outcome_name, market_question):
     """
-    Analyzes a specific event and returns a sentiment score.
-    For multi-outcome events, analyzes the overall market dynamics.
+    Analyzes news articles for a specific outcome and returns a sentiment score.
+    
+    CRITICAL RULE: If no relevant news is found, return score of 0 with reasoning
+    "No relevant news found." Do NOT invent negative sentiment from lack of news.
     """
     if not CLAUDE_AVAILABLE or not client:
-        return get_unavailable_response()
+        return {
+            "score": 0,
+            "reasoning": "AI analysis unavailable. Please add a valid CLAUDE_API_KEY to backend/.env file."
+        }
     
-    if not event_data:
-        return {"sentiment_score": 0, "reasoning": "No event data to analyze"}
-    
-    event_info = f"""
-Event: {event_data.get('title', 'N/A')}
-Description: {event_data.get('description', 'N/A')}
-Volume: ${event_data.get('volumeNum', 0):,.0f}
-24h Volume: ${event_data.get('volume24hr', 0):,.0f}
-Liquidity: ${event_data.get('liquidityNum', 0):,.0f}
-"""
-    
-    # Add market prices - handle both binary and multi-outcome events
-    markets = event_data.get('markets', [])
-    is_multi_outcome = len(markets) > 1 and markets[0].get('groupItemTitle')
-    
-    if is_multi_outcome:
-        event_info += f"\nMulti-Outcome Market - Top Outcomes:\n"
-        for market in markets[:5]:  # Show top 5
-            prices = json.loads(market.get('outcomePrices', '[0, 0]'))
-            title = market.get('groupItemTitle', market.get('question', 'Unknown'))
-            event_info += f"  {title}: {float(prices[0])*100:.1f}¢\n"
-    elif markets:
-        market = markets[0]
-        prices = json.loads(market.get('outcomePrices', '[0, 0]'))
-        outcomes = json.loads(market.get('outcomes', '["Yes", "No"]'))
-        event_info += f"\nBinary Market Prices:\n"
-        for i, outcome in enumerate(outcomes):
-            event_info += f"  {outcome}: {float(prices[i])*100:.1f}¢\n"
-    
-    if is_multi_outcome:
-        prompt = f"""Analyze this multi-outcome prediction market and assess market confidence.
-
-{event_info}
-
-For multi-outcome markets, provide a sentiment score from -100 to +100 based on:
-- Market clarity: Is there a clear favorite or is it uncertain? (clear favorite = higher score)
-- Market efficiency: Do prices reflect reasonable probabilities? (efficient = higher score)
-- Volume and liquidity: Higher activity suggests more confidence (higher = positive score)
-
-Respond in JSON format with:
-- sentiment_score: integer from -100 to +100 (reflects market confidence and clarity)
-- reasoning: 2-3 sentence explanation of market dynamics"""
-    else:
-        prompt = f"""Analyze this binary prediction market event and provide a sentiment score.
-
-{event_info}
-
-Based on the event details, market activity, and current prices, provide a sentiment score from -100 (very bearish/unlikely) to +100 (very bullish/likely).
-
-Consider:
-- Market volume and liquidity (higher = more confidence)
-- Price trends and positioning
-- Event likelihood and market efficiency
-
-Respond in JSON format with:
-- sentiment_score: integer from -100 to +100
-- reasoning: 2-3 sentence explanation of your analysis"""
-
-    try:
-        message = client.messages.create(
-            model="claude-3-haiku-20240307",
-            max_tokens=512,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        
-        response_text = message.content[0].text
-        result = json.loads(response_text)
-        return result
-    except Exception as e:
-        return {"sentiment_score": 0, "reasoning": f"Error analyzing sentiment: {str(e)}"}
-
-
-def analyze_news_sentiment(news_articles, event_data):
-    """
-    Analyzes news articles related to an event and returns a sentiment score.
-    """
-    if not CLAUDE_AVAILABLE or not client:
-        return get_unavailable_response()
-    
+    # Check if we have articles
     if not news_articles or len(news_articles) == 0:
-        return {"sentiment_score": 0, "reasoning": "No news articles available for analysis"}
+        return {
+            "score": 0,
+            "reasoning": "No relevant news found in the last 30 days for this outcome."
+        }
     
     # Format news articles for Claude
     news_text = "\n\n".join([
@@ -127,22 +47,35 @@ def analyze_news_sentiment(news_articles, event_data):
         for article in news_articles[:10]  # Limit to 10 articles
     ])
     
-    prompt = f"""Analyze these news articles related to the prediction market event: "{event_data.get('title', 'N/A')}"
+    prompt = f"""Analyze these news articles for the specific outcome: "{outcome_name}" in the market: "{market_question}"
 
-News Articles:
+News Articles (last 30 days):
 {news_text}
 
-Based on the news sentiment, tone, and implications, provide a sentiment score from -100 (very bearish/negative) to +100 (very bullish/positive).
+CRITICAL RULES:
+1. If the news articles are NOT specifically about "{outcome_name}", return a score of 0 and reasoning "No relevant news found."
+2. Do NOT invent negative sentiment from a lack of news. Absence of news = score of 0, not negative.
+3. Only return a non-zero score if the news is clearly relevant to this specific outcome.
 
-Consider:
-- Overall tone of the news (positive, negative, neutral)
-- Likelihood of the event occurring based on news
-- Market-moving information in the articles
-- Credibility and recency of sources
+Analyze the news:
+1. Are these articles specifically about "{outcome_name}"? If not, score = 0.
+2. If yes, what is the sentiment? Positive news = positive score, negative news = negative score.
+3. How strong is the signal? Strong = higher magnitude, weak = lower magnitude.
 
-Respond in JSON format with:
-- sentiment_score: integer from -100 to +100
-- reasoning: 2-3 sentence explanation of your analysis"""
+Sentiment Score Guidelines:
+- 0: No relevant news found
+- +70 to +100: Very positive news strongly supporting this outcome
+- +30 to +69: Moderately positive news
+- +1 to +29: Slightly positive news
+- -1 to -29: Slightly negative news
+- -30 to -69: Moderately negative news
+- -70 to -100: Very negative news contradicting this outcome
+
+Respond with ONLY valid JSON (no markdown):
+{{
+  "score": <integer from -100 to +100>,
+  "reasoning": "<2-3 sentences explaining the news sentiment or stating 'No relevant news found.'>"
+}}"""
 
     try:
         message = client.messages.create(
@@ -155,125 +88,58 @@ Respond in JSON format with:
         result = json.loads(response_text)
         return result
     except Exception as e:
-        return {"sentiment_score": 0, "reasoning": f"Error analyzing news sentiment: {str(e)}"}
+        return {"score": 0, "reasoning": f"Error analyzing news: {str(e)}"}
 
 
-def analyze_market_depth(market_depth_data, event_data):
+def generate_final_summary(outcome_name, news_analysis, depth_analysis):
     """
-    Analyzes market depth and liquidity distribution for a specific event.
-    Evaluates market health and trader participation.
+    Generates a concise bullet-point summary synthesizing news and liquidity data.
+    This is the new "Overall Analysis" - AI as summarizer, not predictor.
+    
+    Args:
+        outcome_name: The outcome being analyzed
+        news_analysis: Dict with 'score' and 'reasoning' from news sentiment
+        depth_analysis: Dict with 'liquidity_score', 'liquidity_level', 'reasoning' from market depth
+    
+    Returns:
+        Dict with 'summary' text (bullet points on new lines)
     """
     if not CLAUDE_AVAILABLE or not client:
-        return get_unavailable_response(include_trader_quality=True)
-    
-    if not market_depth_data or len(market_depth_data) == 0:
-        return {"sentiment_score": 0, "reasoning": "No market depth data available for analysis", "trader_quality": "unknown"}
-    
-    # Format market depth data
-    depth_summary = []
-    for depth in market_depth_data:
-        summary = {
-            "outcome": depth.get('outcome'),
-            "total_liquidity": depth.get('total_liquidity'),
-            "unique_makers": depth.get('unique_makers'),
-            "bid_volume": depth.get('total_bid_volume'),
-            "ask_volume": depth.get('total_ask_volume'),
-            "spread": depth.get('spread'),
-            "total_orders": depth.get('total_orders')
+        return {
+            "summary": "• AI analysis unavailable. Please configure CLAUDE_API_KEY."
         }
-        depth_summary.append(summary)
     
-    # Check if multi-outcome
-    markets = event_data.get('markets', [])
-    is_multi_outcome = len(markets) > 1 and markets[0].get('groupItemTitle')
-    
-    if is_multi_outcome:
-        prompt = f"""Analyze the market depth and liquidity for this multi-outcome prediction market:
+    prompt = f"""Synthesize a concise bullet-point summary for this prediction market outcome.
 
-Event: {event_data.get('title', 'N/A')}
-
-Market Depth by Outcome:
-{json.dumps(depth_summary, indent=2)}
-
-Evaluate market health based on:
-- Liquidity distribution: Is liquidity concentrated or spread across outcomes?
-- Maker participation: More unique makers = healthier market
-- Order book balance: Balanced bid/ask volumes = efficient market
-- Spread tightness: Tighter spreads = more liquid market
-
-Provide a sentiment score from -100 to +100 based on:
-- High liquidity + many makers + tight spreads = POSITIVE (healthy market)
-- Low liquidity + few makers + wide spreads = NEGATIVE (thin market)
-- Balanced distribution across outcomes = MORE POSITIVE
-
-Respond with ONLY valid JSON (no markdown, no explanations). Use this exact format:
-- sentiment_score: integer from -100 to +100
-- reasoning: 2-3 sentence explanation of market health
-- trader_quality: string (excellent/good/average/poor) based on market depth quality"""
-    else:
-        prompt = f"""Analyze the market depth and liquidity for this prediction market:
-
-Event: {event_data.get('title', 'N/A')}
-
-Market Depth:
-{json.dumps(depth_summary, indent=2)}
-
-Evaluate market health based on:
-- Total liquidity: Higher = more market confidence
-- Maker participation: More unique makers = diverse opinions and healthy market
-- Order book balance: Balanced bid/ask = efficient price discovery
-- Spread: Tighter spread = more liquid and efficient market
-
-Provide a sentiment score from -100 to +100 based on:
-- High liquidity + many makers + tight spreads = POSITIVE (confident market)
-- Low liquidity + few makers + wide spreads = NEGATIVE (uncertain market)
-- Imbalanced order book = directional signal
-
-Respond with ONLY valid JSON (no markdown, no explanations). Use this exact format:
-- sentiment_score: integer from -100 to +100
-- reasoning: 2-3 sentence explanation of market quality
-- trader_quality: string (excellent/good/average/poor) based on market depth quality"""
-
-    try:
-        message = client.messages.create(
-            model="claude-3-haiku-20240307",
-            max_tokens=512,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        
-        response_text = message.content[0].text
-        result = json.loads(response_text)
-        return result
-    except Exception as e:
-        return {"sentiment_score": 0, "reasoning": f"Error analyzing wallets: {str(e)}", "trader_quality": "unknown"}
-
-
-def generate_combined_sentiment(news_sentiment, wallet_sentiment, event_data):
-    """
-    Generates a final combined sentiment score from news and wallet analysis.
-    """
-    if not CLAUDE_AVAILABLE or not client:
-        response = get_unavailable_response()
-        response["confidence"] = "low"
-        return response
-    
-    prompt = f"""Synthesize these analyses into a final sentiment score for this prediction market:
-
-Event: {event_data.get('title', 'N/A')}
+Outcome: "{outcome_name}"
 
 News Sentiment Analysis:
-{json.dumps(news_sentiment, indent=2)}
+- Score: {news_analysis.get('score', 0)} (range: -100 to +100, where 0 = no news)
+- Reasoning: {news_analysis.get('reasoning', 'No analysis available')}
 
-Smart Wallet Analysis:
-{json.dumps(wallet_sentiment, indent=2)}
+Market Liquidity Analysis:
+- Score: {depth_analysis.get('liquidity_score', 0)} (range: 0-100, factual metric)
+- Level: {depth_analysis.get('liquidity_level', 'Unknown')}
+- Reasoning: {depth_analysis.get('reasoning', 'No analysis available')}
 
-Provide a final weighted sentiment score from -100 (very bearish) to +100 (very bullish).
-Weight news sentiment (50%) and smart wallet activity (50%) equally.
+Write a concise summary with 3-4 bullet points, each on a new line:
+• Signal: State if positive, negative, or neutral
+• News: Summarize news sentiment in one short phrase
+• Liquidity: State liquidity level and trading risk
+• Recommendation: One sentence on market attractiveness
 
-Respond in JSON format with:
-- sentiment_score: integer from -100 to +100
-- reasoning: 2-3 sentence comprehensive assessment
-- confidence: string (low/medium/high)"""
+Example format:
+• Signal: Neutral - no clear direction
+• News: No relevant coverage found in last 30 days
+• Liquidity: Zero liquidity - extremely high risk
+• Recommendation: Avoid trading; price is meaningless
+
+IMPORTANT: Put each bullet on its own line (use \\n between bullets, not blank lines).
+
+Respond with ONLY valid JSON (no markdown):
+{{
+  "summary": "<your bullet points here, each starting with • on a new line>"
+}}"""
 
     try:
         message = client.messages.create(
@@ -286,8 +152,4 @@ Respond in JSON format with:
         result = json.loads(response_text)
         return result
     except Exception as e:
-        return {
-            "sentiment_score": 0,
-            "reasoning": f"Error generating combined sentiment: {str(e)}",
-            "confidence": "low"
-        }
+        return {"summary": f"• Error generating summary: {str(e)}"}

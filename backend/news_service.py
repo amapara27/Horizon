@@ -1,6 +1,7 @@
 import requests
 import os
 import re
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -10,69 +11,71 @@ NEWS_API_URL = "https://newsapi.org/v2/everything"
 
 def extract_keywords(title):
     """
-    Extract meaningful keywords from event title for better news search.
+    Extract meaningful keywords from text for news search.
+    Simplified to focus on the most important terms - uses OR for broader results.
     """
     # Remove common question words and punctuation
     title = re.sub(r'\?|!|\.', '', title)
     
     # Keywords to remove (too generic)
-    stop_words = ['in', 'on', 'at', 'by', 'for', 'to', 'of', 'the', 'a', 'an', 'will', 'does', 'is', 'are', 'this', 'that']
-    
-    # Common topic mappings for better results
-    topic_keywords = {
-        'fed': ['Federal Reserve', 'interest rates', 'Jerome Powell', 'FOMC'],
-        'trump': ['Donald Trump', 'Trump administration'],
-        'bitcoin': ['Bitcoin', 'cryptocurrency', 'crypto'],
-        'ai': ['artificial intelligence', 'AI technology'],
-        'election': ['election', 'voting', 'polls'],
-        'ukraine': ['Ukraine', 'Russia Ukraine'],
-        'israel': ['Israel', 'Gaza', 'Middle East'],
-        'china': ['China', 'Xi Jinping'],
-        'elon': ['Elon Musk', 'Tesla', 'SpaceX'],
-        'meta': ['Meta', 'Facebook', 'Mark Zuckerberg'],
-        'google': ['Google', 'Alphabet'],
-        'apple': ['Apple', 'iPhone'],
-        'nfl': ['NFL', 'football'],
-        'nba': ['NBA', 'basketball'],
-        'rates': ['interest rates', 'Federal Reserve'],
-        'decision': ['Federal Reserve', 'FOMC', 'interest rates']
-    }
-    
-    # Check if any topic keywords match
-    title_lower = title.lower()
-    for key, expansions in topic_keywords.items():
-        if key in title_lower:
-            return ' OR '.join(f'"{exp}"' for exp in expansions)
+    stop_words = ['in', 'on', 'at', 'by', 'for', 'to', 'of', 'the', 'a', 'an', 'will', 'does', 'is', 'are', 'this', 'that', 'be', 'and', 'or']
     
     # Split into words and filter
     words = title.split()
     keywords = [w for w in words if w.lower() not in stop_words and len(w) > 2]
     
-    # If we have good keywords, use them
+    # Return the most important keywords - use OR for broader results
     if len(keywords) >= 2:
-        return ' AND '.join(keywords[:3])
+        return ' OR '.join(f'"{w}"' for w in keywords[:2])  # Only top 2 keywords with OR
     elif len(keywords) == 1:
-        return keywords[0]
+        return f'"{keywords[0]}"'
     else:
-        return title
+        return f'"{title}"'
 
-def get_event_news(event_title, max_results=10):
+def get_event_news(market_question, outcome_name, max_results=20):
     """
-    Fetch news articles related to an event title.
+    Fetch news articles related to a specific outcome from the last 30 days.
+    Uses a simple, broad query to maximize results.
+    
+    Args:
+        market_question: The market question (e.g., "Top Searched Person on Google in 2024")
+        outcome_name: The specific outcome (e.g., "Pope Leo XIV")
+        max_results: Maximum number of articles to return
+    
+    Returns:
+        Dictionary with articles list and query info
     """
     if not NEWS_API_KEY:
-        return {"error": "NEWS_API_KEY not configured"}
+        return {"error": "NEWS_API_KEY not configured", "articles": []}
     
-    # Extract better search query
-    query = extract_keywords(event_title)
+    # Calculate date range (last 30 days for maximum results)
+    thirty_days_ago = datetime.now() - timedelta(days=30)
+    from_date = thirty_days_ago.strftime('%Y-%m-%d')
+    
+    # Use just the outcome name without quotes for broader results
+    # Remove special characters that might interfere
+    clean_outcome = re.sub(r'[^\w\s]', '', outcome_name)
+    query = clean_outcome.strip()
+    
+    # If query is too short or generic, don't search
+    if len(query) < 3:
+        return {
+            'articles': [],
+            'query_used': query,
+            'outcome_name': outcome_name,
+            'market_question': market_question
+        }
     
     params = {
         'q': query,
         'apiKey': NEWS_API_KEY,
         'language': 'en',
         'sortBy': 'publishedAt',
-        'pageSize': max_results
+        'pageSize': max_results,
+        'from': from_date
     }
+    
+    print(f"News API query: {query}")
     
     try:
         response = requests.get(NEWS_API_URL, params=params)
@@ -92,9 +95,19 @@ def get_event_news(event_title, max_results=10):
                         'publishedAt': article.get('publishedAt'),
                         'urlToImage': article.get('urlToImage')
                     })
-            return {'articles': articles}
+            
+            print(f"Found {len(articles)} articles for '{query}'")
+            
+            return {
+                'articles': articles,
+                'query_used': query,
+                'outcome_name': outcome_name,
+                'market_question': market_question
+            }
         else:
-            return {'error': data.get('message', 'Unknown error')}
+            print(f"News API error: {data.get('message', 'Unknown error')}")
+            return {'error': data.get('message', 'Unknown error'), 'articles': []}
             
     except requests.exceptions.RequestException as e:
-        return {'error': str(e)}
+        print(f"News API request error: {str(e)}")
+        return {'error': str(e), 'articles': []}
