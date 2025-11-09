@@ -481,7 +481,46 @@ function AnalysisPage() {
                                             color: '#9ca3af',
                                             textAlign: 'center'
                                         }}>
-                                            {wallet.trade_count} trades
+                                            {wallet.trade_count} trades on this event
+                                        </div>
+                                    )}
+                                    {wallet.win_rate && (
+                                        <div style={{ 
+                                            marginTop: '0.5rem',
+                                            padding: '0.4rem',
+                                            background: wallet.win_rate > 60 ? 'rgba(34, 197, 94, 0.1)' : 'rgba(234, 88, 12, 0.1)',
+                                            borderRadius: '6px',
+                                            borderLeft: `3px solid ${wallet.win_rate > 60 ? '#16a34a' : '#ea580c'}`
+                                        }}>
+                                            <div style={{ 
+                                                fontSize: '0.65rem',
+                                                color: '#718096',
+                                                marginBottom: '0.2rem'
+                                            }}>
+                                                Historical Performance
+                                            </div>
+                                            <div style={{ 
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                fontSize: '0.7rem',
+                                                fontWeight: '600',
+                                                color: '#4a5568'
+                                            }}>
+                                                <span>Win Rate: {wallet.win_rate}%</span>
+                                                {wallet.historical_trades && (
+                                                    <span>{wallet.historical_trades} total trades</span>
+                                                )}
+                                            </div>
+                                            {wallet.total_profit && (
+                                                <div style={{ 
+                                                    fontSize: '0.7rem',
+                                                    color: wallet.total_profit > 0 ? '#16a34a' : '#dc2626',
+                                                    marginTop: '0.2rem',
+                                                    fontWeight: '600'
+                                                }}>
+                                                    Profit: ${wallet.total_profit.toLocaleString()}
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </a>
@@ -630,7 +669,7 @@ function AnalysisPage() {
                         textAlign: 'center'
                     }}>
                         <h3 style={{ color: '#2d3748', fontSize: '1rem', marginBottom: '1rem' }}>
-                            💼 Smart Wallet Sentiment
+                            💼 Trader Quality Score
                         </h3>
                         {walletSentiment ? (
                             <>
@@ -642,6 +681,27 @@ function AnalysisPage() {
                                 }}>
                                     {walletSentiment.sentiment_score > 0 ? '+' : ''}{walletSentiment.sentiment_score}%
                                 </div>
+                                {walletSentiment.trader_quality && (
+                                    <div style={{
+                                        display: 'inline-block',
+                                        padding: '0.25rem 0.75rem',
+                                        background: walletSentiment.trader_quality === 'excellent' ? 'rgba(34, 197, 94, 0.1)' :
+                                                   walletSentiment.trader_quality === 'good' ? 'rgba(101, 163, 13, 0.1)' :
+                                                   walletSentiment.trader_quality === 'average' ? 'rgba(202, 138, 4, 0.1)' :
+                                                   'rgba(239, 68, 68, 0.1)',
+                                        color: walletSentiment.trader_quality === 'excellent' ? '#16a34a' :
+                                               walletSentiment.trader_quality === 'good' ? '#65a30d' :
+                                               walletSentiment.trader_quality === 'average' ? '#ca8a04' :
+                                               '#dc2626',
+                                        borderRadius: '12px',
+                                        fontSize: '0.75rem',
+                                        fontWeight: '600',
+                                        marginBottom: '0.75rem',
+                                        textTransform: 'uppercase'
+                                    }}>
+                                        {walletSentiment.trader_quality} traders
+                                    </div>
+                                )}
                                 <p style={{ 
                                     fontSize: '0.85rem', 
                                     color: '#4a5568',

@@ -127,7 +127,8 @@ Respond in JSON format with:
 
 def analyze_smart_wallets(wallet_data, event_data):
     """
-    Analyzes smart wallet activity for a specific event.
+    Analyzes smart wallet activity for a specific event based on their historical performance.
+    Evaluates the quality of traders investing in this event.
     """
     if not CLAUDE_AVAILABLE or not client:
         return {
@@ -138,23 +139,43 @@ def analyze_smart_wallets(wallet_data, event_data):
     if not wallet_data or len(wallet_data) == 0:
         return {"sentiment_score": 0, "reasoning": "No wallet data available for analysis"}
     
-    prompt = f"""Analyze smart wallet trading activity for this prediction market event:
+    # Format wallet data with historical performance
+    wallet_summary = []
+    for wallet in wallet_data:
+        summary = {
+            "position": wallet.get('position'),
+            "size": wallet.get('size'),
+            "historical_win_rate": wallet.get('win_rate', 'N/A'),
+            "total_historical_trades": wallet.get('historical_trades', 'N/A'),
+            "total_profit": wallet.get('total_profit', 'N/A'),
+            "markets_traded": wallet.get('markets_traded', 'N/A')
+        }
+        wallet_summary.append(summary)
+    
+    prompt = f"""Analyze the quality of traders investing in this prediction market event:
 
 Event: {event_data.get('title', 'N/A')}
 
-Smart Wallet Activity:
-{json.dumps(wallet_data, indent=2)}
+Top Traders and Their Historical Performance:
+{json.dumps(wallet_summary, indent=2)}
 
-Based on the wallet positions, trading patterns, and win rates, provide a sentiment score from -100 (very bearish) to +100 (very bullish).
+Evaluate the QUALITY of these traders based on their historical performance:
+- Win rates (higher = better traders)
+- Total trades (more experience = more reliable)
+- Profitability (consistent profits = skilled traders)
+- Market diversity (more markets = well-rounded)
 
-Consider:
-- Position directions and sizes
-- Wallet win rates and profitability
-- Trading conviction (larger positions = more confidence)
+Provide a sentiment score from -100 to +100 based on:
+- If GOOD traders (high win rates, profitable) are investing → HIGHER score
+- If POOR traders (low win rates, unprofitable) are investing → LOWER score
+- Consider the DIRECTION they're betting (YES/NO) and their conviction
+
+The score reflects: "Are skilled, successful traders confident in this outcome?"
 
 Respond in JSON format with:
 - sentiment_score: integer from -100 to +100
-- reasoning: 2-3 sentence explanation"""
+- reasoning: 2-3 sentence explanation focusing on trader quality
+- trader_quality: string (excellent/good/average/poor)"""
 
     try:
         message = client.messages.create(
@@ -167,7 +188,7 @@ Respond in JSON format with:
         result = json.loads(response_text)
         return result
     except Exception as e:
-        return {"sentiment_score": 0, "reasoning": f"Error analyzing wallets: {str(e)}"}
+        return {"sentiment_score": 0, "reasoning": f"Error analyzing wallets: {str(e)}", "trader_quality": "unknown"}
 
 
 def generate_combined_sentiment(news_sentiment, wallet_sentiment, event_data):
